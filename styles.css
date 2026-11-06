@@ -20,7 +20,7 @@ h1 { margin: 0; font-family: "Noto Serif TC", Georgia, serif; font-size: clamp(2
 .masthead p:not(.eyebrow), .muted { color: var(--quiet); }
 nav { display: flex; flex-wrap: wrap; gap: .25rem; border-bottom: 1px solid var(--border); }
 button, input, textarea, select { font: inherit; color: inherit; }
-button, input:not([type="radio"]), textarea { min-height: 2.75rem; }
+button, input:not([type="radio"]):not([type="checkbox"]), textarea, select { min-height: 2.75rem; }
 button { padding: .5rem .85rem; background: var(--surface); border: 1px solid var(--border); border-radius: .5rem; cursor: pointer; }
 button:hover { border-color: var(--accent); }
 button:disabled { opacity: .55; cursor: default; }
@@ -30,7 +30,7 @@ nav button[aria-current="page"] { color: var(--accent); border-bottom-color: var
 main { padding-block: 1.5rem 5rem; }
 h2 { margin: 0 0 .75rem; font-size: 1.45rem; }
 h3 { margin-block: 0 .75rem; font-size: 1.05rem; }
-input:not([type="radio"]), textarea { width: 100%; background: var(--surface); border: 1px solid var(--border); padding: .55rem .75rem; border-radius: .5rem; }
+input:not([type="radio"]):not([type="checkbox"]), textarea, select { width: 100%; background: var(--surface); border: 1px solid var(--border); padding: .55rem .75rem; border-radius: .5rem; }
 .primary { background: var(--accent); color: white; border-color: var(--accent); font-weight: 700; }
 .rows { padding: 0; margin: .75rem 0 1.5rem; list-style: none; background: var(--surface); border-block: 1px solid var(--border); }
 .row { display: flex; align-items: center; gap: .5rem; padding: .5rem; border-bottom: 1px solid var(--border); }
@@ -43,13 +43,16 @@ input:not([type="radio"]), textarea { width: 100%; background: var(--surface); b
 .place img { display: block; width: min(100%, 22rem); margin-top: 1rem; border-radius: .5rem; }
 .progress-box { margin-top: 1rem; }
 .progress-box progress { display: block; width: min(100%, 26rem); height: 1rem; accent-color: var(--accent); margin: .75rem 0; }
-.map { position: relative; min-height: 14rem; aspect-ratio: 2.4; margin: .75rem 0 1.25rem; overflow: hidden; border: 1px solid var(--border); border-radius: .75rem; background: #edf0de; }
+.map { position: relative; width: 100%; min-height: 14rem; aspect-ratio: 2.4; margin: .75rem 0 1.25rem; overflow: hidden; border: 1px solid var(--border); border-radius: .75rem; background: #edf0de; }
 .map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .map-labels { position: absolute; inset: .5rem 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; font-size: .85rem; }
 .map-pin { position: absolute; left: var(--x); top: var(--y); min-width: 2.75rem; transform: translate(-50%, -50%); background: var(--accent); color: white; border: 2px solid white; border-radius: 2rem; font-weight: 700; }
 .map-pin:hover { background: var(--ink); }
 .switcher { display: flex; gap: .5rem; margin-bottom: .75rem; }
 .switcher [aria-pressed="true"] { background: var(--accent-pale); border-color: var(--accent); font-weight: 700; }
+.filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.filters select { margin-top: .25rem; }
+.first-rank { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--border); }
 .notice { position: fixed; z-index: 2; bottom: 1rem; right: 1rem; left: 1rem; width: fit-content; max-width: calc(100% - 2rem); margin: 0 auto; padding: .75rem 1rem; border-radius: .5rem; background: var(--ink); color: white; }
 .notice:empty { display: none; }
 dialog { width: min(100% - 1.5rem, 32rem); max-height: 92vh; padding: 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface); color: var(--ink); }

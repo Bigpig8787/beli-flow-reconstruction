@@ -14,6 +14,7 @@ const status = document.querySelector('#status');
 const error = document.querySelector('#dialog-error');
 const labels = { liked: '喜歡', fine: '普通', disliked: '不喜歡' };
 const all = [...restaurants.values()];
+const filters = { district: '', cuisine: '', price: '' };
 let noticeTimer;
 let page = 'search';
 let listMap = false;
@@ -110,7 +111,11 @@ function detail(place) {
     + (row?.date ? '<p>用餐日期　' + escape(row.date) + '</p>' : '')
     + (row?.companions ? '<p>同行者　' + escape(row.companions) + '</p>' : '')
     + (row?.tags.length ? '<p>標籤　' + escape(row.tags.join('、')) + '</p>' : '')
-    + (row?.note ? '<p>' + escape(row.note) + '</p>' : '') + image + '</article>';
+    + (row?.note ? '<p>' + escape(row.note) + '</p>' : '') + image
+    + (row && state.ranked.length === 1 ? '<section class="first-rank"><h3>你記下第一家店了</h3>'
+      + '<p>再評一家，就能開始累積自己的口味排行。</p>'
+      + '<button type="button" data-next>再評一家</button></section>' : '')
+    + '</article>';
 }
 
 function drawMap(places) {
@@ -131,17 +136,28 @@ function drawMap(places) {
     + '<div class="map-labels"><span>北巷</span><span>中街</span><span>南埕</span></div>' + pins + '</div>';
 }
 
+function filterSelect(key, label) {
+  const options = [...new Set(all.map(place => String(place[key])))];
+  return '<label>' + label + '<select data-filter="' + key + '"><option value="">全部</option>'
+    + options.map(value => '<option value="' + escape(value) + '"' + (filters[key] === value ? ' selected' : '')
+      + '>' + (key === 'price' ? '＄'.repeat(Number(value)) : escape(value)) + '</option>').join('')
+    + '</select></label>';
+}
+
 function exploration() {
   const { count, target, unlocked } = progress(state.ranked);
   const favorite = state.ranked.find(row => row.mood === 'liked')?.cuisine;
-  const unseen = all.filter(place => !state.ranked.some(row => row.id === place.id));
+  const matches = place => Object.entries(filters).every(([key, value]) => !value || String(place[key]) === value);
+  const unseen = all.filter(place => matches(place) && !state.ranked.some(row => row.id === place.id));
   const suggestions = unseen.filter(place => place.cuisine === favorite);
   return '<h2 id="view-title">探索</h2><p class="muted">示意地圖 · 三個虛構街區</p>'
-    + drawMap(state.ranked) + '<section class="progress-box"><h3>個人化推薦進度</h3>'
+    + '<div class="filters">' + filterSelect('district', '街區') + filterSelect('cuisine', '料理')
+    + filterSelect('price', '價位') + '</div>' + drawMap(state.ranked.filter(matches))
+    + '<section class="progress-box"><h3>個人化推薦進度</h3>'
     + '<progress aria-label="個人化推薦進度" value="' + Math.min(count, target) + '" max="' + target + '"></progress>'
     + '<p><strong>' + count + ' / ' + target + '</strong></p>'
     + (unlocked ? '<p>已解鎖本機推薦</p>' + rows((suggestions.length ? suggestions : unseen).slice(0, 4))
-      : '<p>評價 15 家就能解鎖。</p><button type="button" class="primary" data-page="search">繼續評價</button>')
+      : '<p>評價 15 家就能解鎖。</p><button type="button" class="primary" data-next>繼續評價</button>')
     + '</section>';
 }
 
@@ -164,7 +180,8 @@ function render() {
       + (listMap ? drawMap([...been, ...saved.filter(place => !been.some(row => row.id === place.id))])
         : '<h3>吃過</h3>' + rows(been) + '<h3>想去</h3>' + rows(saved));
   } else if (page === 'activity') {
-    const recent = [...state.ranked].sort((a, b) => (b.ratedAt ?? 0) - (a.ratedAt ?? 0));
+    const recent = state.ranked.filter(row => !row.hiddenFromActivity)
+      .sort((a, b) => (b.ratedAt ?? 0) - (a.ratedAt ?? 0));
     view.innerHTML = '<h2 id="view-title">動態</h2><p class="muted">最近的用餐紀錄</p>'
       + rows(recent.map(row => restaurants.get(row.id)));
   } else if (page === 'profile') {
@@ -185,6 +202,7 @@ function openRating(id) {
     form.elements.mood.value = existing.mood;
     for (const name of ['companions', 'dish', 'date', 'note']) form.elements[name].value = existing[name] ?? '';
     form.elements.tags.value = existing.tags.join('、');
+    form.elements.hiddenFromActivity.checked = Boolean(existing.hiddenFromActivity);
   }
   fields.hidden = false;
   comparison.hidden = true;
@@ -240,6 +258,14 @@ document.addEventListener('input', event => {
   } else if (event.target.name === 'mood') extras.hidden = submit.disabled = false;
 });
 
+document.addEventListener('change', event => {
+  const key = event.target.dataset.filter;
+  if (!Object.hasOwn(filters, key)) return;
+  filters[key] = event.target.value;
+  render();
+  document.querySelector('[data-filter="' + key + '"]').focus();
+});
+
 form.addEventListener('submit', async event => {
   event.preventDefault();
   const values = new FormData(form);
@@ -256,6 +282,7 @@ form.addEventListener('submit', async event => {
       companions: values.get('companions').trim(), dish: values.get('dish').trim(),
       tags: [...new Set(values.get('tags').split(/[、,，]/).map(tag => tag.trim()).filter(Boolean))],
       date: values.get('date'), note: values.get('note').trim(), ratedAt: Date.now(),
+      hiddenFromActivity: values.has('hiddenFromActivity'),
     });
     nextComparison();
   } catch {
@@ -266,6 +293,14 @@ form.addEventListener('submit', async event => {
     if (dialog.open && ratingSession === session) submit.disabled = false;
   }
 });
+
+function navigate() {
+  render();
+  const title = document.querySelector('#view-title');
+  title.tabIndex = -1;
+  title.focus({ preventScroll: true });
+  window.scrollTo(0, 0);
+}
 
 document.addEventListener('click', event => {
   const button = event.target.closest('button');
@@ -285,7 +320,7 @@ document.addEventListener('click', event => {
   else if (data.detail) {
     selected = data.detail;
     if (page === 'search') save({ ...state, recent: [selected, ...state.recent.filter(id => id !== selected)].slice(0, 4) });
-    render();
+    navigate();
   } else if (data.bookmark) {
     const id = data.bookmark;
     const saved = state.saved.includes(id) ? state.saved.filter(value => value !== id) : [...state.saved, id];
@@ -293,10 +328,15 @@ document.addEventListener('click', event => {
   } else if (data.listView) {
     listMap = data.listView === 'map';
     render();
+  } else if (data.next !== undefined) {
+    query = '';
+    page = 'search';
+    selected = null;
+    navigate();
   } else if (data.page || data.back !== undefined) {
     if (data.page) page = data.page;
     selected = null;
-    render();
+    navigate();
   }
 });
 
