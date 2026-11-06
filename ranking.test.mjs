@@ -1,44 +1,66 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import {
-  beginRanking, compare, finishRanking, opponent, progress, score,
-} from './ranking.mjs';
+import { beginRanking, compare, finishRanking, opponent, progress, score } from './ranking.mjs';
 
-const item = (id, mood = 'liked') => ({ id, mood });
+const entry = (id, mood = 'liked', details = {}) => ({ id, mood, ...details });
+const ranked = (id, value, mood = 'liked', details = {}) => entry(id, mood, { value, ...details });
 
-test('first restaurant saves without a comparison', () => {
-  const draft = beginRanking([], item('a'));
+test('a new group starts at the midpoint of its rating band', () => {
+  const draft = beginRanking([], entry('a'));
   assert.equal(opponent(draft), null);
-  assert.deepEqual(finishRanking(draft), [item('a')]);
+  assert.deepEqual(finishRanking(draft), [ranked('a', 2.5)]);
 });
 
-test('comparisons narrow the insertion point and undo restores the prior question', () => {
-  let draft = beginRanking(['a', 'b', 'c', 'd'].map(id => item(id)), item('x'));
-  assert.equal(opponent(draft).id, 'c');
-  draft = compare(draft, 'new');
-  assert.equal(opponent(draft).id, 'b');
-  assert.equal(opponent(compare(draft, 'undo')).id, 'c');
+test('similarity chooses the first opponent and choices narrow the range', () => {
+  const a = ranked('a', 2.8, 'liked', { cuisine: '早餐' });
+  const b = ranked('b', 2.6);
+  const c = ranked('c', 2.4, 'liked', { cuisine: '早餐' });
+  let draft = beginRanking([a, b, c], entry('x', 'liked', { cuisine: '早餐' }));
+  assert.equal(opponent(draft).id, 'a');
   assert.equal(finishRanking(draft), null);
   draft = compare(draft, 'existing');
-  assert.deepEqual(finishRanking(draft).map(entry => entry.id), ['a', 'b', 'x', 'c', 'd']);
+  assert.equal(opponent(draft).id, 'c');
+  assert.equal(opponent(compare(draft, 'undo')).id, 'a');
+  draft = compare(draft, 'new');
+  assert.equal(opponent(draft).id, 'b');
+  draft = compare(draft, 'existing');
+  assert.deepEqual(finishRanking(draft).map(item => item.id), ['a', 'b', 'x', 'c']);
 });
 
-test('another rating band does not add a comparison, and reranking replaces a record', () => {
-  const draft = beginRanking([item('a'), item('b')], item('a', 'fine'));
+test('re-ranking replaces the previous entry and compares within the new group', () => {
+  const draft = beginRanking([ranked('a', 2.7), ranked('b', 2.5)], entry('a', 'fine'));
   assert.equal(opponent(draft), null);
-  assert.deepEqual(finishRanking(draft), [item('b'), item('a', 'fine')]);
+  assert.deepEqual(finishRanking(draft), [ranked('b', 2.5), ranked('a', 1.5, 'fine')]);
 });
 
-test('tie and skip give stable placements without dropping records', () => {
-  const draft = beginRanking([item('a'), item('b'), item('c')], item('x'));
-  assert.deepEqual(finishRanking(compare(draft, 'tie')).map(entry => entry.id), ['a', 'b', 'x', 'c']);
-  assert.deepEqual(finishRanking(compare(draft, 'skip')).map(entry => entry.id), ['a', 'b', 'c', 'x']);
+test('skip switches opponent without narrowing placement and tie preserves rank value', () => {
+  const draft = beginRanking([ranked('a', 2.8), ranked('b', 2.4)], entry('x'));
+  const skipped = compare(draft, 'skip');
+  assert.equal(opponent(skipped).id, 'b');
+  assert.equal(opponent(compare(skipped, 'undo')).id, 'a');
+  assert.equal(finishRanking(skipped), null);
+  assert.deepEqual(finishRanking(compare(skipped, 'tie')), [
+    ranked('a', 2.8), ranked('b', 2.4), ranked('x', 2.4),
+  ]);
 });
 
-test('progress counts unique restaurants, with separate score and discovery thresholds', () => {
-  assert.deepEqual(progress([item('a'), item('a'), item('b')]), { count: 2, target: 15, unlocked: false });
-  assert.equal(progress(Array.from({ length: 15 }, (_, i) => item(String(i)))).unlocked, true);
-  assert.equal(score(1, 9), null);
-  assert.equal(score(1, 10), '10.0');
-  assert.equal(score(10, 10), '0.0');
+test('choosing a side after a tie keeps the new entry out of the tied value', () => {
+  const draft = beginRanking([ranked('a', 2.5), ranked('b', 2.5)], entry('x'));
+  assert.equal(finishRanking(compare(draft, 'new'))[0].value, 2.75);
+});
+
+test('local scores use separate rating bands after ten entries', () => {
+  const list = Array.from({ length: 8 }, (_, i) => ranked(String(i), 2.9 - i / 10));
+  list.push(ranked('fine', 1.6, 'fine'));
+  assert.equal(score('0', list), null);
+  list.push(ranked('dislike', 0.5, 'disliked'));
+  assert.equal(score('0', list), '10.0');
+  assert.equal(score('1', list), '9.6');
+  assert.equal(score('fine', list), '6.7');
+  assert.equal(score('dislike', list), '3.4');
+});
+
+test('discovery progress counts unique restaurants and unlocks at fifteen', () => {
+  assert.deepEqual(progress([entry('a'), entry('a'), entry('b')]), { count: 2, target: 15, unlocked: false });
+  assert.equal(progress(Array.from({ length: 15 }, (_, i) => entry(String(i)))).unlocked, true);
 });
