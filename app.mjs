@@ -15,9 +15,15 @@ const error = document.querySelector('#dialog-error');
 const labels = { liked: '喜歡', fine: '普通', disliked: '不喜歡' };
 const all = [...restaurants.values()];
 const filters = { district: '', cuisine: '', price: '' };
+const tour = [
+  { title: '記錄', summary: '將吃過和想去的店整理成排行、清單與地圖。' },
+  { title: '分享', summary: '回看這次和誰吃了什麼，挑選哪些用餐紀錄出現在動態。' },
+  { title: '探索', summary: '累積評價，看看你的口味可能會喜歡哪些店。' },
+];
 let noticeTimer;
 let page = 'search';
 let listMap = false;
+let tourStep = 0;
 let selected = null;
 let ratingId = null;
 let ratingSession = 0;
@@ -161,6 +167,16 @@ function exploration() {
     + '</section>';
 }
 
+function drawTour() {
+  const step = tour[tourStep];
+  return '<section class="place"><p class="eyebrow">' + (tourStep + 1) + ' / ' + tour.length + '</p>'
+    + '<h2 id="view-title">' + step.title + '</h2><p>' + step.summary + '</p>'
+    + drawMap([]) + '<div class="tour-actions">'
+    + '<button type="button" data-tour-step="-1"' + (tourStep === 0 ? ' disabled' : '') + '>上一張</button>'
+    + '<button type="button" data-tour-step="1"' + (tourStep === tour.length - 1 ? ' disabled' : '') + '>下一張</button>'
+    + '<button type="button" class="primary" data-next>開始試用</button></div></section>';
+}
+
 function render() {
   for (const button of document.querySelectorAll('nav [data-page]')) {
     if (button.dataset.page === page) button.setAttribute('aria-current', 'page');
@@ -188,7 +204,7 @@ function render() {
     view.innerHTML = '<h2 id="view-title">個人</h2><section class="place"><h3>我的用餐足跡</h3>'
       + '<p>吃過 <strong>' + state.ranked.length + '</strong> 家 · 想去 <strong>' + state.saved.length + '</strong> 家</p>'
       + '<button type="button" data-page="lists">查看我的清單</button></section>';
-  } else view.innerHTML = exploration();
+  } else view.innerHTML = page === 'tour' ? drawTour() : exploration();
 }
 
 function openRating(id) {
@@ -328,6 +344,9 @@ document.addEventListener('click', event => {
   } else if (data.listView) {
     listMap = data.listView === 'map';
     render();
+  } else if (data.tourStep) {
+    tourStep = Math.max(0, Math.min(tour.length - 1, tourStep + Number(data.tourStep)));
+    navigate();
   } else if (data.next !== undefined) {
     query = '';
     page = 'search';
@@ -335,6 +354,7 @@ document.addEventListener('click', event => {
     navigate();
   } else if (data.page || data.back !== undefined) {
     if (data.page) page = data.page;
+    if (page === 'tour') tourStep = 0;
     selected = null;
     navigate();
   }

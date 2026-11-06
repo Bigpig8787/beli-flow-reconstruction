@@ -27,6 +27,8 @@ button:disabled { opacity: .55; cursor: default; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 nav button { background: transparent; border: 0; border-radius: 0; border-bottom: 3px solid transparent; }
 nav button[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 750; }
+.tour-link { margin-top: .5rem; color: var(--accent); background: transparent; }
+.tour-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 main { padding-block: 1.5rem 5rem; }
 h2 { margin: 0 0 .75rem; font-size: 1.45rem; }
 h3 { margin-block: 0 .75rem; font-size: 1.05rem; }
