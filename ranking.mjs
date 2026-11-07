@@ -65,7 +65,7 @@ export function finishRanking({ entry, others, cursor: { candidates, low, high }
 }
 
 export function progress(ranked) {
-  const target = 15;
+  const target = 1;
   const count = new Set(ranked.map(entry => entry.id)).size;
   return { count, target, unlocked: count >= target };
 }

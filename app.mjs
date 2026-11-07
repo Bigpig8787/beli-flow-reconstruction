@@ -152,6 +152,7 @@ function filterSelect(key, label) {
 
 function exploration() {
   const { count, target, unlocked } = progress(state.ranked);
+  const completed = Math.min(count, target);
   const favorite = state.ranked.find(row => row.mood === 'liked')?.cuisine;
   const matches = place => Object.entries(filters).every(([key, value]) => !value || String(place[key]) === value);
   const unseen = all.filter(place => matches(place) && !state.ranked.some(row => row.id === place.id));
@@ -160,10 +161,10 @@ function exploration() {
     + '<div class="filters">' + filterSelect('district', '街區') + filterSelect('cuisine', '料理')
     + filterSelect('price', '價位') + '</div>' + drawMap(state.ranked.filter(matches))
     + '<section class="progress-box"><h3>個人化推薦進度</h3>'
-    + '<progress aria-label="個人化推薦進度" value="' + Math.min(count, target) + '" max="' + target + '"></progress>'
-    + '<p><strong>' + count + ' / ' + target + '</strong></p>'
+    + '<progress aria-label="個人化推薦進度" value="' + completed + '" max="' + target + '"></progress>'
+    + '<p><strong>' + completed + ' / ' + target + '</strong></p>'
     + (unlocked ? '<p>已解鎖本機推薦</p>' + rows((suggestions.length ? suggestions : unseen).slice(0, 4))
-      : '<p>評價 15 家就能解鎖。</p><button type="button" class="primary" data-next>繼續評價</button>')
+      : '<p>評價 ' + target + ' 家就能解鎖。</p><button type="button" class="primary" data-next>繼續評價</button>')
     + '</section>';
 }
 

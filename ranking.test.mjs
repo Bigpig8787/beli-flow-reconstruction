@@ -60,7 +60,8 @@ test('local scores use separate rating bands after ten entries', () => {
   assert.equal(score('dislike', list), '3.4');
 });
 
-test('discovery progress counts unique restaurants and unlocks at fifteen', () => {
-  assert.deepEqual(progress([entry('a'), entry('a'), entry('b')]), { count: 2, target: 15, unlocked: false });
-  assert.equal(progress(Array.from({ length: 15 }, (_, i) => entry(String(i)))).unlocked, true);
+test('discovery unlocks after the first rating and counts each restaurant once', () => {
+  assert.deepEqual(progress([]), { count: 0, target: 1, unlocked: false });
+  assert.deepEqual(progress([entry('a')]), { count: 1, target: 1, unlocked: true });
+  assert.deepEqual(progress([entry('a'), entry('a'), entry('b')]), { count: 2, target: 1, unlocked: true });
 });
