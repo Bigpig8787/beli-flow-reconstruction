@@ -12,6 +12,7 @@
 - 兩兩比較、上一步、同分、換題，以及比較中的餐廳資訊。
 - 清單／地圖切換、個人用餐統計與三步導覽。
 - 評價 **1 家**即可解鎖示範推薦；累積 10 家後顯示分數。
+- 探索頁與餐廳頁可輸入真實店名或地址，點開 Google Maps／Apple 地圖。使用官方地圖搜尋連結，不需要 API 金鑰；手機是否切換到地圖 App 由裝置決定。
 
 ## 本機執行
 
@@ -22,3 +23,5 @@
 店家與地圖均為虛構示範資料，評價、照片、收藏只儲存在目前瀏覽器。沒有連接 Beli 帳號、原版推薦服務、真實訂位或好友系統；清除瀏覽器資料會移除紀錄，不同網址的紀錄不會同步。
 
 原版截圖、APK、程式包、字型與圖像未收錄於此儲存庫。這是獨立重建的示範，並非 Beli 官方產品；字型使用系統後備字型，並非完整重現原版字型。
+
+地圖連結依據 [Google Maps URLs](https://developers.google.com/maps/documentation/urls/get-started) 與 [Apple 統一地圖網址](https://developer.apple.com/documentation/mapkit/unified-map-urls)。目前開啟的是地圖搜尋結果，未在頁內嵌入 Google／Apple 地圖，也未把虛構餐廳當作真實座標。
