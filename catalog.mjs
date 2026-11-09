@@ -12,3 +12,18 @@ export const restaurants = new Map(samples.map(([name, cuisine, price], index) =
   const district = ['北巷', '中街', '南埕'][Math.floor(index / 6)];
   return [id, { id, name, cuisine, price, city: '示範市', district }];
 }));
+
+export function createDemoState() {
+  const ids = ['7', '4', '1', '11', '5', '2', '8', '6', '3', '9'];
+  return {
+    ranked: ids.map((id, index) => ({
+      ...restaurants.get(id), mood: index < 7 ? 'liked' : 'fine',
+      value: index < 7 ? 2.95 - index * .12 : 1.8 - (index - 7) * .2,
+      tags: index < 3 ? ['值得再訪'] : ['日常口袋名單'],
+      note: ['採光很舒服，適合留一個下午給自己。', '湯頭很有層次，下次還想再來。', '簡單的早餐，也能讓一天變得很好。'][index % 3],
+      companions: index % 2 ? 'Alex' : 'Jamie', date: '2026-11-07',
+      ratedAt: 1794000000000 - index * 86400000,
+    })),
+    saved: ['10', '16', '13'], recent: [],
+  };
+}

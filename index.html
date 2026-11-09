@@ -3,23 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>餐桌筆記</title>
+  <title>Fomery · 美食社群與寵物</title>
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="app.mjs"></script>
 </head>
 <body>
   <header class="shell masthead">
-    <p class="eyebrow">互動示範</p>
-    <h1>餐桌筆記</h1>
-    <p>記下吃過的店，慢慢排出你的口袋名單。</p>
+    <a class="brand" href="./" aria-label="Fomery 首頁">Fomery</a>
+    <p class="eyebrow">A LITTLE MORE YOU.</p>
+    <h1>好好吃飯，<br>也好好記得。</h1>
+    <p>你的口味，你的排行。<br>把每次喜歡，都收進口袋。</p>
     <nav aria-label="主要頁面">
-      <button type="button" data-page="search" aria-current="page">找店</button>
-      <button type="button" data-page="lists">我的清單</button>
-      <button type="button" data-page="explore">探索</button>
-      <button type="button" data-page="activity">動態</button>
-      <button type="button" data-page="profile">個人</button>
+      <button type="button" data-page="activity"><span aria-hidden="true">⌂</span> 動態</button>
+      <button type="button" data-page="community"><span aria-hidden="true">♧</span> 好友與群組</button>
+      <button type="button" data-page="gatherings"><span aria-hidden="true">♨</span> 聚餐</button>
+      <button type="button" data-page="pets"><span aria-hidden="true">♙</span> 寵物</button>
+      <button type="button" data-page="search"><span aria-hidden="true">⌕</span> 找店</button>
+      <button type="button" data-page="lists"><span aria-hidden="true">☷</span> 我的清單</button>
+      <button type="button" data-page="explore"><span aria-hidden="true">◎</span> 探索</button>
+      <button type="button" data-page="profile"><span aria-hidden="true">◉</span> 個人</button>
     </nav>
-    <button type="button" class="tour-link" data-page="tour">三步導覽</button>
+    <div class="demo-tools"><span class="demo-badge">互動展示版</span><p>靈感來自 Beli · 非官方作品<br>店家、朋友與地圖均為示範資料</p><button type="button" class="tour-link" data-page="tour">90 秒展示路線 ↗</button><button type="button" class="tour-link" data-reset>重設展示資料</button></div>
   </header>
   <main class="shell" id="main">
     <section id="view" aria-labelledby="view-title"></section>

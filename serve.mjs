@@ -9,6 +9,9 @@ const files = {
   '/app.mjs': ['app.mjs', 'text/javascript'],
   '/catalog.mjs': ['catalog.mjs', 'text/javascript'],
   '/ranking.mjs': ['ranking.mjs', 'text/javascript'],
+  '/social.mjs': ['social.mjs', 'text/javascript'],
+  '/social-ui.mjs': ['social-ui.mjs', 'text/javascript'],
+  '/maps.mjs': ['maps.mjs', 'text/javascript'],
   '/styles.css': ['styles.css', 'text/css'],
 };
 
