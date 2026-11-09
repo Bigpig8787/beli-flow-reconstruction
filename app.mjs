@@ -1,5 +1,5 @@
 import { restaurants, createDemoState } from './catalog.mjs';
-import { mapsUrl } from './maps.mjs';
+import { mapsUrl, googleExploreEmbedUrl } from './maps.mjs';
 import { createSocialState, transition } from './social.mjs';
 import { community, gatherings, pets, socialFeed, growthReceipt } from './social-ui.mjs';
 import { beginRanking, compare, finishRanking, moods, opponent, progress, score } from './ranking.mjs';
@@ -32,7 +32,7 @@ let ratingId = null;
 let ratingSession = 0;
 let draft = null;
 let query = '';
-let mapQuery = '台南市 餐廳';
+let mapQuery = '台中市 餐廳';
 let state = load();
 if (!state.social) state = { ...state, social: createSocialState() };
 
@@ -170,10 +170,10 @@ function drawMap(places) {
 }
 
 function mapPanel(places) {
-  const destination = mapQuery.trim() || '台南市 餐廳';
-  const route = destination !== '台南市 餐廳';
-  return '<section class="map-workspace"><div class="map-canvas-panel"><div class="section-heading"><h3>我的美食地圖</h3><span class="demo-badge">示意位置</span></div>' + drawMap(places)
-    + '<div class="google-map-card"><span class="eyebrow">EXPLORE WITH GOOGLE MAPS</span><h3>把下一餐，放到真實地圖上。</h3><form id="maps-form" action="https://www.google.com/maps/search/" method="get" target="_blank" rel="noopener noreferrer"><input type="hidden" name="api" value="1"><label for="map-query">真實店名、地址或地區＋料理</label><input id="map-query" name="query" value="' + escape(mapQuery) + '" required maxlength="180" placeholder="例如：台南市東區 咖啡"><div class="action-row"><button class="primary" type="submit">在 Google Maps 搜尋 ↗</button><a class="map-link" id="map-directions" href="' + escape(mapsUrl(destination, route ? 'directions' : 'search')) + '" target="_blank" rel="noopener noreferrer">' + (route ? '規劃前往此地的路線 ↗' : '開啟 Google Maps ↗') + '</a></div><p class="muted">另開 Google Maps 查看真實位置。輸入明確店名或地址後，可規劃路線；上方標記為虛構示範。</p></form></div></div><aside class="map-place-list"><h3>清單中的店家 · ' + places.length + '</h3><p class="muted">點店名或地圖標記查看紀錄</p>' + rows(places) + '</aside></section>';
+  const destination = mapQuery.trim() || '台中市 餐廳';
+  const route = destination !== '台中市 餐廳';
+  return '<section class="map-workspace"><div class="map-canvas-panel"><div class="section-heading"><h3>我的美食地圖</h3><span class="demo-badge">Google Maps · 台中</span></div><div class="google-map-frame"><iframe src="' + escape(googleExploreEmbedUrl) + '" title="我的美食地圖：Google Maps 台中市區" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>'
+    + '<div class="google-map-card"><span class="eyebrow">EXPLORE WITH GOOGLE MAPS</span><h3>把下一餐，放到真實地圖上。</h3><form id="maps-form" action="https://www.google.com/maps/search/" method="get" target="_blank" rel="noopener noreferrer"><input type="hidden" name="api" value="1"><label for="map-query">真實店名、地址或地區＋料理</label><input id="map-query" name="query" value="' + escape(mapQuery) + '" required maxlength="180" placeholder="例如：台中市西區 咖啡"><div class="action-row"><button class="primary" type="submit">在 Google Maps 搜尋 ↗</button><a class="map-link" id="map-directions" href="' + escape(mapsUrl(destination, route ? 'directions' : 'search')) + '" target="_blank" rel="noopener noreferrer">' + (route ? '規劃前往此地的路線 ↗' : '開啟 Google Maps ↗') + '</a></div><p class="muted">可直接拖曳、縮放上方 Google 地圖。搜尋與路線另開 Google Maps；下方示範店家未標示於真實地圖。</p></form></div></div><aside class="map-place-list"><h3>清單中的店家 · ' + places.length + '</h3><p class="muted">點店名查看紀錄 · 以下為示範店家</p>' + rows(places) + '</aside></section>';
 }
 
 function filterSelect(key, label) {

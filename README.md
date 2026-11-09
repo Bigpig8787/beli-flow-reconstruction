@@ -21,7 +21,7 @@ git commit -m "feat: add social dining and pet demo with GitHub Pages"
 git push origin main
 ```
 
-目前環境連不到 GitHub，因此只完成本機檔案與發布設定，尚未完成遠端推送或啟用 Pages。公開後訪客皆可開啟，你的電腦不必保持開機。
+網站已透過 GitHub Actions 發布：https://bigpig8787.github.io/beli-flow-reconstruction/ 。公開後訪客皆可開啟，你的電腦不必保持開機。
 
 官方文件：https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
 
@@ -50,7 +50,8 @@ node serve.mjs
 - 寵物互動：在群組寵物櫥窗點「一起玩」，雙方各獲得 5 XP，群組會顯示互動紀錄。同一對寵物每日只能互動一次，跨群組或交換角色也不能重複領取。
 - 發文回饋：發布後立即顯示成長卡，包含前後型態、XP、金幣、進化提示與下一階段進度。貼文也保留該次成長摘要；同日重複發文明確顯示 +0 XP。
 - Google Maps：探索與清單地圖改為地圖／清單配置。輸入真實店名、地址或地區＋料理後，可以另開 Google Maps 搜尋或規劃路線。餐廳詳情提供同類餐廳搜尋；虛構餐廳不會被當成真實地址。
-- 地圖串接使用免 API key 的 Google Maps URLs，並非內嵌 Google 地圖；需網路才能查看 Google Maps。示意標記仍保留供展示。官方規格：https://developers.google.com/maps/documentation/urls/get-started
+- 我的美食地圖使用 Google Maps 內嵌畫面（台中市區），可拖曳、縮放。店名搜尋與路線另開 Google Maps；虛構示範店家不會標示在真實地圖上。需要網路才能載入地圖。
+- 全站採最大 480px 的手機版面，八個主要功能固定在底部兩列，包含手機安全區留白。
 
 - 好友：送邀請 → 對方角色接受。防止重複邀請與重複新增。
 - 群組：加入公開示範群組後可發文、看成員寵物、參加所屬活動。
