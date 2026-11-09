@@ -3,25 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>餐桌筆記</title>
-  <link rel="stylesheet" href="styles.css?v=20261108-embed">
-  <script type="module" src="app.mjs?v=20261108-embed"></script>
+  <title>Fomery · 美食社群與寵物</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.mjs"></script>
 </head>
 <body>
   <header class="shell masthead">
-    <div><h1>餐桌筆記<span class="brand-dot">.</span></h1><p class="edition">你的美食口袋名單</p></div>
-    <button type="button" class="tour-link" data-page="tour" aria-label="三步導覽">使用導覽 <span aria-hidden="true">↗</span></button>
+    <a class="brand" href="./" aria-label="Fomery 首頁">Fomery</a>
+    <p class="eyebrow">A LITTLE MORE YOU.</p>
+    <h1>好好吃飯，<br>也好好記得。</h1>
+    <p>你的口味，你的排行。<br>把每次喜歡，都收進口袋。</p>
+    <nav aria-label="主要頁面">
+      <button type="button" data-page="activity"><span aria-hidden="true">⌂</span> 動態</button>
+      <button type="button" data-page="community"><span aria-hidden="true">♧</span> 好友與群組</button>
+      <button type="button" data-page="gatherings"><span aria-hidden="true">♨</span> 聚餐</button>
+      <button type="button" data-page="pets"><span aria-hidden="true">♙</span> 寵物</button>
+      <button type="button" data-page="search"><span aria-hidden="true">⌕</span> 找店</button>
+      <button type="button" data-page="lists"><span aria-hidden="true">☷</span> 我的清單</button>
+      <button type="button" data-page="explore"><span aria-hidden="true">◎</span> 探索</button>
+      <button type="button" data-page="profile"><span aria-hidden="true">◉</span> 個人</button>
+    </nav>
+    <div class="demo-tools"><span class="demo-badge">互動展示版</span><p>靈感來自 Beli · 非官方作品<br>店家、朋友與地圖均為示範資料</p><button type="button" class="tour-link" data-page="tour">90 秒展示路線 ↗</button><button type="button" class="tour-link" data-reset>重設展示資料</button></div>
   </header>
   <main class="shell" id="main">
     <section id="view" aria-labelledby="view-title"></section>
   </main>
-    <nav aria-label="主要頁面">
-      <button type="button" data-page="activity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/></svg><span>動態</span></button>
-      <button type="button" data-page="lists"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1"/></svg><span>我的清單</span></button>
-      <button type="button" data-page="search" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>找店</span></button>
-      <button type="button" data-page="explore"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9c0 5-7 11-7 11S5 14 5 9a7 7 0 0 1 14 0Z"/><circle cx="12" cy="9" r="2"/></svg><span>探索</span></button>
-      <button type="button" data-page="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>個人</span></button>
-    </nav>
   <p id="status" class="notice" role="status"></p>
   <dialog id="dialog" aria-labelledby="dialog-title">
     <form id="rating-form">

@@ -12,3 +12,14 @@ export function mapSearchLinks(query) {
   apple.searchParams.set('query', query.trim());
   return { google: google.href, apple: apple.href };
 }
+
+// Search and directions for real user-entered places.
+export function mapsUrl(query, mode = 'search') {
+  const text = String(query ?? '').trim();
+  if (!text || text.length > 180) throw new Error('請輸入 1–180 字的地點或地址');
+  const directions = mode === 'directions';
+  const url = new URL(directions ? 'https://www.google.com/maps/dir/' : 'https://www.google.com/maps/search/');
+  url.searchParams.set('api','1');
+  url.searchParams.set(directions ? 'destination' : 'query', text);
+  return url.href;
+}
