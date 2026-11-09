@@ -1,8 +1,10 @@
 import { restaurants, createDemoState } from './catalog.mjs';
 import { mapsUrl, googleExploreEmbedUrl } from './maps.mjs';
-import { createSocialState, transition } from './social.mjs';
-import { community, gatherings, pets, socialFeed, growthReceipt } from './social-ui.mjs';
+import { createSocialState, transition, people, petStage, skins } from './social.mjs';
+import { community, gatherings, pets, growthReceipt, socialToolbar, petCard } from './social-ui.mjs';
 import { beginRanking, compare, finishRanking, moods, opponent, progress, score } from './ranking.mjs';
+import { readExif, nearbyPlaces, placeCoords, photoTransition, photoTypes, seedPhotos, localStamp, visiblePhotos, petMemories } from './photos.mjs';
+import { food, activityPage, recordPage, reviewPage, photoMapPage, hasFriends } from './photo-ui.mjs';
 
 const key = 'table-notes-demo-v2';
 const empty = { ranked: [], saved: [], recent: [] };
@@ -19,12 +21,16 @@ const labels = { liked: '喜歡', fine: '普通', disliked: '不喜歡' };
 const all = [...restaurants.values()];
 const filters = { district: '', cuisine: '', price: '' };
 const tour = [
-  { title: '01 / 找到一起吃飯的人', summary: '向 Mika 發送好友邀請，切換成 Mika 接受；回到你的角色，加入「週末咖啡散步」，看看群組裡朋友的寵物。', action: '新增好友與加入群組', page: 'community' },
-  { title: '02 / 把下一餐變成聚會', summary: '建立一場聚餐，主動邀請 Jamie。切換成 Jamie 接受邀請，也可以用其他群組成員的角色自由加入，展示人數即時更新。', action: '發起一場聚餐', page: 'gatherings' },
-  { title: '03 / 每一篇分享，都讓糰子長大', summary: '到寵物頁發第一篇群組貼文，寶寶就會進化！用示範金幣買主廚造型，再模擬隔天繼續餵養。到群組查看彼此的寵物。', action: '認識我的糰子', page: 'pets' },
+  { title: '01 / 拍下這一餐', summary: '到「＋記錄」用示範照片試試：拍攝時間自動帶入，有位置的照片會推薦附近店家讓你確認。讓糰子入鏡、拖到食物旁邊，分享給好友。', action: '記下這一餐', page: 'record' },
+  { title: '02 / 朋友看到，想一起吃', summary: '在動態上方把角色切成 Jamie，對你剛發的照片按「下次一起」。不用填表單，系統直接在你們的共同群組發出週六的邀約。', action: '看朋友的動態', page: 'activity' },
+  { title: '03 / 赴約，然後回顧', summary: '切回你的角色，在動態按「我要去」。到「回顧」看這個月吃了幾餐、糰子入鏡幾次、和誰吃得最多。', action: '打開回顧', page: 'review' },
 ];
+const navParent = { community: 'profile', gatherings: 'profile', pets: 'profile', lists: 'profile', search: 'profile', explore: 'map', tour: 'profile' };
 let noticeTimer;
 let page = 'activity';
+let drafts = [];
+let mapScope = 'friends';
+let mapFocus = '';
 let listMap = false;
 let tourStep = 0;
 let selected = null;
@@ -34,7 +40,13 @@ let draft = null;
 let query = '';
 let mapQuery = '台中市 餐廳';
 let state = load();
-if (!state.social) state = { ...state, social: createSocialState() };
+if (!state.social) state = { ...state, social: freshSocial() };
+if (!Array.isArray(state.social.photos)) state = { ...state, social: { ...state.social, photos: seedPhotos(state.social) } };
+
+function freshSocial() {
+  const social = createSocialState();
+  return { ...social, photos: seedPhotos(social) };
+}
 
 function load() {
   try {
@@ -78,23 +90,8 @@ function escape(value) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 }
 
-const food = { 早餐: '🥐', 麵食: '🍜', 鍋物: '🍲', 咖啡: '☕', 甜點: '🍮', 飲品: '🍵' };
 function artwork(place, large = false) {
   return '<span aria-hidden="true" class="food-art ' + (large ? 'large' : '') + ' art-' + place.price + '"><span>' + food[place.cuisine] + '</span></span>';
-}
-
-function feed() {
-  const friends = [
-    { name: 'Jamie', letter: 'J', id: '14', time: '今天 12:30', text: '找到新的週末基地了。拿鐵很順口，窗邊的位置可以坐一整個下午。', tag: '咖啡口袋名單' },
-    { name: 'Alex', letter: 'A', id: '10', time: '昨天 10:15', text: '睡晚一點也不怕，這份早午餐值得專程來。下次一起？', tag: '週末早午餐' },
-  ];
-  return '<div class="page-heading"><div><p class="eyebrow">YOUR DAILY BITES</p><h2 id="view-title">跟著喜歡的人，吃點好的。</h2></div><span class="avatar">Y</span></div>'
-    + '<section class="welcome"><div><span class="demo-badge">我的美食日常</span><h3>下一頓，值得期待。</h3><p>從一次心動收藏，到只屬於你的餐廳排行。</p><button class="primary" data-rate="14">＋ 記錄一頓好吃的</button></div><span class="welcome-art" aria-hidden="true">🍜</span></section>'
-    + socialFeed(state.social)
-    + '<div class="section-heading"><h3>朋友的餐桌</h3><span class="muted">示範動態 · 2 位朋友</span></div>'
-    + friends.map(friend => { const place = restaurants.get(friend.id); return '<article class="feed-card"><header><span class="avatar">' + friend.letter + '</span><div><strong>' + friend.name + '</strong><small>' + friend.time + ' · 新增了用餐紀錄</small></div><span class="friend-score">喜歡 ♡</span></header><button class="feed-image" data-detail="' + place.id + '" aria-label="查看 ' + place.name + '">' + artwork(place, true) + '<span class="image-caption">' + friend.tag + '</span></button><div class="feed-body"><button class="text-button" data-detail="' + place.id + '"><h3>' + place.name + ' ↗</h3></button><p class="muted">' + place.district + ' · ' + place.cuisine + ' · ' + '＄'.repeat(place.price) + '</p><p>' + friend.text + '</p><button class="bookmark" data-bookmark="' + place.id + '" aria-pressed="' + state.saved.includes(place.id) + '">' + (state.saved.includes(place.id) ? '✓ 已加入想去' : '＋ 存為想去') + '</button></div></article>'; }).join('')
-    + '<div class="section-heading"><h3>我的最近紀錄</h3><button data-page="lists">全部清單 ↗</button></div>'
-    + rows(state.ranked.filter(row => !row.hiddenFromActivity).sort((a,b) => (b.ratedAt ?? 0) - (a.ratedAt ?? 0)).slice(0,3).map(row => restaurants.get(row.id)));
 }
 
 function rows(places) {
@@ -136,8 +133,8 @@ function detail(place) {
     + '<p class="muted">' + place.city + ' · ' + place.district + ' · ' + place.cuisine + '</p>'
     + (row ? '<p><strong>第 ' + rank + ' 名</strong> · ' + labels[row.mood]
       + (rating ? ' · ' + rating + ' 分' : ' · 排滿 10 家顯示分數') + '</p>' : '')
-    + '<button type="button" class="primary" data-rate="' + place.id + '">' + (row ? '重新評價' : '加入吃過') + '</button> '
-    + '<button type="button" class="bookmark" aria-pressed="' + isSaved + '" data-bookmark="' + place.id + '">' + (isSaved ? '已收藏' : '存為想去') + '</button>'
+    + '<div class="place-actions"><button type="button" class="primary" data-rate="' + place.id + '">' + (row ? '重新評價' : '加入吃過') + '</button> '
+    + '<button type="button" class="bookmark" aria-pressed="' + isSaved + '" data-bookmark="' + place.id + '">' + (isSaved ? '已收藏' : '存為想去') + '</button></div>'
     + '<p><a class="map-link" href="' + escape(mapsUrl('台南市 ' + place.cuisine)) + '" target="_blank" rel="noopener noreferrer">Google Maps 找同類餐廳 ↗</a></p><p class="muted">此店為虛構示範，連結搜尋真實同類餐廳，不是此店的地址。</p>'
     + '<p class="detail-description">' + ({ 咖啡: '留一點時間給咖啡香，和不趕時間的自己。', 早餐: '從一份用心的早餐，開始今天的小旅行。', 麵食: '熱騰騰的一碗，收好日常裡最踏實的幸福。' }[place.cuisine] || '把生活的滋味，留在這一餐。') + '</p>'
     + (row?.dish ? '<p>喜歡的菜　' + escape(row.dish) + '</p>' : '')
@@ -159,12 +156,12 @@ function drawMap(places) {
     const y = 31 + Math.floor(i % 6 / 2) * 24 + (i % 2 ? 7 : 0);
     return '<button type="button" class="map-pin" data-detail="' + place.id
       + '" aria-label="地圖上的 ' + escape(place.name) + '" style="--x:' + x + '%;--y:' + y + '%">'
-      + place.id + '</button>';
+      + (score(place.id, state.ranked) || place.id) + '</button>';
   }).join('');
   return '<div class="map" aria-label="虛構街區示意圖">'
     + '<svg aria-hidden="true" viewBox="0 0 480 230" preserveAspectRatio="none">'
     + '<path d="M0 146Q145 185 257 128T480 154" fill="none" stroke="#c5dcdf" stroke-width="28"/>'
-    + '<path d="M143 0v230M338 0v230M0 76h480M0 198h480M86 0v115M404 92v138" fill="none" stroke="#fffdf7" stroke-width="9"/>'
+    + '<path d="M143 0v230M338 0v230M0 76h480M0 198h480M86 0v115M404 92v138" fill="none" stroke="#fff" stroke-width="9"/>'
     + '<rect x="163" y="14" width="110" height="40" rx="8" fill="#d3e0bc"/></svg>'
     + '<div class="map-labels"><span>北巷</span><span>中街</span><span>南埕</span></div>' + pins + '</div>';
 }
@@ -204,17 +201,18 @@ function exploration() {
 
 function drawTour() {
   const step = tour[tourStep];
-  return '<section class="place"><p class="eyebrow">' + (tourStep + 1) + ' / ' + tour.length + '</p>'
+  return '<section class="place tour-card"><p class="eyebrow">' + (tourStep + 1) + ' / ' + tour.length + '</p>'
     + '<h2 id="view-title">' + step.title + '</h2><p>' + step.summary + '</p>'
-    + '<div class="tour-visual" aria-hidden="true">' + ['🤝', '🍲', '🐣'][tourStep] + '</div><div class="tour-actions">'
+    + '<div class="tour-visual" aria-hidden="true">' + ['📸', '🍽', '🐣'][tourStep] + '</div><div class="tour-actions">'
     + '<button type="button" data-tour-step="-1"' + (tourStep === 0 ? ' disabled' : '') + '>上一張</button>'
     + '<button type="button" data-tour-step="1"' + (tourStep === tour.length - 1 ? ' disabled' : '') + '>下一張</button>'
     + '<button type="button" class="primary" data-page="' + step.page + '">' + step.action + '</button></div></section>';
 }
 
 function render() {
+  const current = navParent[page] ?? page;
   for (const button of document.querySelectorAll('nav [data-page]')) {
-    if (button.dataset.page === page) button.setAttribute('aria-current', 'page');
+    if (button.dataset.page === current) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
   if (selected) view.innerHTML = detail(restaurants.get(selected));
@@ -231,7 +229,14 @@ function render() {
       + (listMap ? mapPanel([...been, ...saved.filter(place => !been.some(row => row.id === place.id))])
         : '<h3>吃過</h3>' + rows(been) + '<h3>想去</h3>' + rows(saved));
   } else if (page === 'activity') {
-    view.innerHTML = feed();
+    view.innerHTML = activityPage(state.social, socialToolbar(state.social));
+  } else if (page === 'record') {
+    view.innerHTML = recordPage(state.social, drafts);
+  } else if (page === 'review') {
+    view.innerHTML = reviewPage(state.social);
+  } else if (page === 'map') {
+    if (mapScope === 'friends' && !hasFriends(state.social)) mapScope = 'mine';
+    view.innerHTML = photoMapPage(state.social, mapScope, mapFocus);
   } else if (page === 'community') {
     view.innerHTML = community(state.social);
   } else if (page === 'gatherings') {
@@ -239,11 +244,181 @@ function render() {
   } else if (page === 'pets') {
     view.innerHTML = pets(state.social);
   } else if (page === 'profile') {
-    view.innerHTML = '<h2 id="view-title">我的美食護照</h2><section class="place profile-card"><span class="avatar">Y</span><h3>You / 今天也要好好吃飯</h3><p class="muted">一餐一餐，收集自己的城市。</p>'
-      + '<p>吃過 <strong>' + state.ranked.length + '</strong> 家 · 想去 <strong>' + state.saved.length + '</strong> 家</p>'
-      + '<button type="button" data-page="lists">查看我的清單</button></section>';
+    view.innerHTML = profilePage();
   } else view.innerHTML = page === 'tour' ? drawTour() : exploration();
 }
+
+function profilePage() {
+  const s = state.social, actor = s.actor, pet = s.pets[actor], stage = petStage(pet.xp);
+  const mine = visiblePhotos(s, 'mine');
+  const memories = petMemories(s, actor);
+  const invites = s.events.filter(e => e.invited.includes(actor)).length;
+  const link = (target, icon, label, note = '') => '<button type="button" class="profile-link" data-page="' + target + '"><span aria-hidden="true">' + icon + '</span>' + label + (note ? '<small>' + note + '</small>' : '') + '</button>';
+  return '<p class="eyebrow">MY FOOD PASSPORT</p><h2 id="view-title">我的</h2>' + socialToolbar(s)
+    + '<section class="place profile-card"><span class="avatar">' + escape(people[actor].slice(0, 1)) + '</span><h3>' + escape(people[actor]) + ' · 今天也要好好吃飯</h3>'
+    + '<p>照片 <strong>' + mine.length + '</strong> 張 · 吃過 <strong>' + state.ranked.length + '</strong> 家 · 想去 <strong>' + state.saved.length + '</strong> 家</p></section>'
+    + '<section class="pet-home">' + petCard(s, actor) + '<div><h3>' + stage.name + '</h3>'
+    + '<progress value="' + Math.min(pet.xp, stage.next) + '" max="' + stage.next + '" aria-label="寵物進化進度"></progress>'
+    + '<p class="muted">' + (pet.xp >= 140 ? '已是最終型態' : '再 ' + (stage.next - pet.xp) + ' XP 進化') + ' · 每天第一張分享給好友的照片 +20 XP</p>'
+    + '<p>入鏡 ' + memories.photos.length + ' 次' + (memories.friends[0] ? ' · 最常和 ' + escape(memories.friends[0].name) + ' 一起吃' : '') + '</p>'
+    + '<button type="button" data-page="pets">照顧糰子・換造型</button></div></section>'
+    + '<div class="profile-links">'
+    + link('community', '♧', '好友與群組') + link('gatherings', '♨', '聚餐', invites ? invites + ' 個邀約' : '')
+    + link('lists', '☷', '我的清單') + link('search', '⌕', '找店評價') + link('explore', '◎', 'Google 地圖') + link('tour', '▶', '90 秒導覽')
+    + '</div><button type="button" class="tour-link profile-reset" data-reset>重設展示資料</button>';
+}
+
+const draftDefaults = () => ({ caption: '', with: [], audience: 'friends', petOn: false, pet: { x: .74, y: .7, scale: .28 }, place: '' });
+
+async function cropPhoto(file) {
+  if (!file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) throw new Error('size');
+  const image = await createImageBitmap(file);
+  try {
+    // Center-crop to 4:3 so the pet position on screen matches the exported image.
+    const canvas = document.createElement('canvas');
+    canvas.width = 720; canvas.height = 540;
+    const ratio = 4 / 3;
+    const sw = image.width / image.height > ratio ? image.height * ratio : image.width;
+    const sh = sw / ratio;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 720, 540);
+    ctx.drawImage(image, (image.width - sw) / 2, (image.height - sh) / 2, sw, sh, 0, 0, 720, 540);
+    return canvas.toDataURL('image/jpeg', .72);
+  } finally {
+    image.close();
+  }
+}
+
+async function addFiles(files) {
+  const room = 6 - drafts.length;
+  if (room <= 0) { notify('一次最多 6 張，先發布或移除幾張。'); return; }
+  const picked = [...files].slice(0, room);
+  let failed = 0;
+  for (const file of picked) {
+    try {
+      const exif = file.type === 'image/jpeg' ? readExif(await file.slice(0, 256 * 1024).arrayBuffer()) : {};
+      const src = await cropPhoto(file);
+      const hadGps = exif.lat !== undefined;
+      drafts.push({ ...draftDefaults(), src, takenAt: exif.takenAt ?? localStamp(file.lastModified || Date.now()),
+        dateSource: exif.takenAt ? 'exif' : 'file', hadGps, candidates: hadGps ? nearbyPlaces(exif) : [] });
+    } catch { failed += 1; }
+  }
+  render();
+  notify((picked.length - failed) + ' 張已加入' + (failed ? '，' + failed + ' 張無法讀取（請用 JPEG、PNG 或 WebP）' : '') + (files.length > room ? '，超過 6 張的部分已略過' : '') + '。');
+}
+
+function addSamples() {
+  const near = placeCoords.get('9');
+  const stamp = localStamp(Date.now() - 2 * 3600 * 1000);
+  drafts.push({ ...draftDefaults(), src: 'art:9', takenAt: stamp, dateSource: 'exif', hadGps: true, candidates: nearbyPlaces({ lat: near.lat + .0004, lng: near.lng - .0003 }) });
+  drafts.push({ ...draftDefaults(), src: 'art:12', takenAt: localStamp(Date.now() - 26 * 3600 * 1000), dateSource: 'file', hadGps: false, candidates: [] });
+  render();
+  notify('已加入 2 張示範照片：一張有位置資訊，一張沒有。');
+}
+
+function publishDrafts() {
+  const missing = drafts.findIndex(d => !d.place);
+  if (missing >= 0) { notify('第 ' + (missing + 1) + ' 張還沒選店家。'); return; }
+  let social = state.social;
+  try {
+    for (const d of drafts) {
+      social = photoTransition(social, { type: 'photo', place: d.place, takenAt: d.takenAt, src: d.src, caption: d.caption,
+        audience: d.audience, with: d.with, pet: d.petOn ? d.pet : null });
+    }
+  } catch (err) { notify(err.message); return; }
+  const count = drafts.length;
+  const growth = social.photos.slice(0, count).map(p => p.growth).find(g => g?.xp);
+  if (!save({ ...state, social }, '已發布 ' + count + ' 張照片' + (growth ? '，糰子 +' + growth.xp + ' XP' : '') + '。')) return;
+  drafts = [];
+  page = 'activity';
+  navigate();
+  if (growth) {
+    view.querySelector('.record-cta')?.insertAdjacentHTML('beforebegin', growthReceipt(growth));
+    view.querySelector('.growth-receipt')?.focus({ preventScroll: true });
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
+}
+
+async function exportPhoto(id) {
+  const p = state.social.photos.find(item => item.id === id);
+  if (!p) return;
+  const place = restaurants.get(p.place);
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080; canvas.height = 810;
+  const ctx = canvas.getContext('2d');
+  if (p.src.startsWith('data:')) ctx.drawImage(await loadImage(p.src), 0, 0, 1080, 810);
+  else {
+    const art = restaurants.get(p.src.slice(4)) ?? place;
+    const gradient = ctx.createLinearGradient(0, 0, 1080, 810);
+    gradient.addColorStop(0, ['#f6e7c8', '#f3d9c4', '#e5d7ea'][art.price - 1]);
+    gradient.addColorStop(1, ['#e9c98f', '#e6a98a', '#c4b0d6'][art.price - 1]);
+    ctx.fillStyle = gradient; ctx.fillRect(0, 0, 1080, 810);
+    ctx.font = '360px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(food[art.cuisine] ?? '🍽', 540, 405);
+  }
+  if (p.pet) {
+    const size = p.pet.scale * 1080, x = p.pet.x * 1080, y = p.pet.y * 810;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = size + 'px serif'; ctx.fillText(p.pet.stage, x, y);
+    ctx.font = size * .45 + 'px serif'; ctx.fillText(skins.find(item => item.id === p.pet.skin)?.icon ?? '', x + size * .38, y - size * .38);
+  }
+  ctx.fillStyle = '#ffffffd9'; ctx.fillRect(0, 730, 1080, 80);
+  ctx.fillStyle = '#24543f'; ctx.font = 'bold 34px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(place.name + ' · ' + p.takenAt.slice(0, 10), 32, 770);
+  ctx.textAlign = 'right'; ctx.fillText('Fomery', 1048, 770);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .9));
+  const file = new File([blob], 'fomery-' + place.name + '.jpg', { type: 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: place.name }); return; } catch (err) { if (err.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  notify('合照圖片已下載，可以分享到其他地方。');
+}
+
+function draftAt(el) {
+  const index = Number(el.closest('[data-draft]')?.dataset.draft);
+  return Number.isInteger(index) ? drafts[index] : null;
+}
+
+function placePet(handle, d) {
+  handle.style.setProperty('--x', (d.pet.x * 100).toFixed(1) + '%');
+  handle.style.setProperty('--y', (d.pet.y * 100).toFixed(1) + '%');
+  handle.setAttribute('aria-valuetext', '水平 ' + Math.round(d.pet.x * 100) + '%，垂直 ' + Math.round(d.pet.y * 100) + '%');
+}
+
+let dragging = null;
+document.addEventListener('pointerdown', event => {
+  const handle = event.target.closest('[data-pet-handle]');
+  if (!handle) return;
+  event.preventDefault();
+  handle.setPointerCapture(event.pointerId);
+  dragging = { handle, draft: drafts[Number(handle.dataset.petHandle)], frame: handle.closest('[data-pet-frame]') };
+});
+document.addEventListener('pointermove', event => {
+  if (!dragging) return;
+  const rect = dragging.frame.getBoundingClientRect();
+  dragging.draft.pet.x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+  dragging.draft.pet.y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+  placePet(dragging.handle, dragging.draft);
+});
+document.addEventListener('pointerup', () => { dragging = null; });
+document.addEventListener('pointercancel', () => { dragging = null; });
+document.addEventListener('keydown', event => {
+  const handle = event.target.closest?.('[data-pet-handle]');
+  const move = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+  if (!handle || !move) return;
+  event.preventDefault();
+  const d = drafts[Number(handle.dataset.petHandle)];
+  d.pet.x = Math.min(1, Math.max(0, d.pet.x + move[0] * .03));
+  d.pet.y = Math.min(1, Math.max(0, d.pet.y + move[1] * .03));
+  placePet(handle, d);
+});
 
 function openRating(id) {
   ratingId = id;
@@ -260,9 +435,12 @@ function openRating(id) {
   }
   fields.hidden = false;
   comparison.hidden = true;
-  extras.open = false;
+  extras.open = Boolean(form.elements.mood.value);
+  for (const field of extras.querySelectorAll('details')) field.open = false;
   extras.hidden = submit.disabled = !form.elements.mood.value;
   document.querySelector('#dialog-title').textContent = restaurants.get(id).name;
+  const place = restaurants.get(id);
+  document.querySelector('#dialog-meta').textContent = '＄'.repeat(place.price) + ' · ' + place.cuisine + ' · ' + place.district;
   dialog.showModal();
 }
 
@@ -290,9 +468,17 @@ function nextComparison() {
   if (pair) {
     fields.hidden = true;
     comparison.hidden = false;
-    comparison.querySelector('.pair').innerHTML = '<button type="button" data-choice="new">'
-      + escape(draft.entry.name) + '</button><button type="button" data-choice="existing">'
-      + escape(pair.name) + '</button>';
+    document.querySelector('#comparison-mood').innerHTML = moods.map(mood =>
+      '<span class="mini-choice mood-' + mood + (mood === draft.entry.mood ? ' chosen' : '') + '">'
+      + '<span class="mood-circle" aria-hidden="true">' + (mood === draft.entry.mood ? '✓' : '') + '</span>'
+      + '<small>' + labels[mood] + (mood === draft.entry.mood ? '（已選）' : '') + '</small></span>').join('');
+    comparison.querySelector('.pair').innerHTML = '<button type="button" data-choice="new" aria-label="' + escape(draft.entry.name) + '">'
+      + escape(draft.entry.name) + '<small>' + escape(draft.entry.district) + '</small></button><button type="button" data-choice="existing" aria-label="' + escape(pair.name) + '">'
+      + escape(pair.name) + '<small>' + escape(pair.district) + '</small></button>';
+    document.querySelector('#comparison-info').innerHTML = [draft.entry, pair].map(place =>
+      '<p><strong>' + escape(place.name) + '</strong><br>' + escape(place.city) + ' · ' + escape(place.district)
+      + ' · ' + escape(place.cuisine) + ' · ' + '＄'.repeat(place.price) + '</p>').join('');
+    comparison.querySelector('details').open = false;
     document.querySelector('#compare-title').focus();
     return;
   }
@@ -307,6 +493,16 @@ function nextComparison() {
 }
 
 document.addEventListener('input', event => {
+  const field = event.target.dataset?.draftField;
+  if (field && ['takenAt', 'caption', 'petScale'].includes(field)) {
+    const d = draftAt(event.target);
+    if (!d) return;
+    if (field === 'petScale') {
+      d.pet.scale = Number(event.target.value) / 100;
+      event.target.closest('[data-draft]').querySelector('[data-pet-handle]')?.style.setProperty('--s', d.pet.scale);
+    } else d[field] = event.target.value;
+    return;
+  }
   if (event.target.id === 'map-query') {
     mapQuery = event.target.value;
     const link = document.querySelector('#map-directions');
@@ -320,12 +516,37 @@ document.addEventListener('input', event => {
   } else if (event.target.id === 'search') {
     query = event.target.value;
     drawResults();
-  } else if (event.target.name === 'mood') extras.hidden = submit.disabled = false;
+  } else if (event.target.name === 'mood') {
+    extras.hidden = submit.disabled = false;
+    extras.open = true;
+  }
 });
 
 document.addEventListener('change', event => {
   if (event.target.id === 'demo-actor') {
+    drafts = [];
     applySocial({ type: 'actor', id: event.target.value });
+    return;
+  }
+  if (event.target.id === 'photo-input') {
+    addFiles(event.target.files);
+    return;
+  }
+  const field = event.target.dataset?.draftField;
+  const withId = event.target.dataset?.draftWith;
+  if (field || withId) {
+    const d = draftAt(event.target);
+    if (!d) return;
+    if (withId) d.with = event.target.checked ? [...d.with, withId] : d.with.filter(id => id !== withId);
+    else if (field === 'place') d.place = event.target.value;
+    else if (field === 'audience') d.audience = event.target.value;
+    else if (field === 'petOn') d.petOn = event.target.checked;
+    else return;
+    if (field === 'place' || field === 'petOn') {
+      const index = drafts.indexOf(d);
+      render();
+      view.querySelector('[data-draft="' + index + '"] [data-draft-field="' + field + '"]')?.focus();
+    }
     return;
   }
   const key = event.target.dataset.filter;
@@ -373,8 +594,25 @@ function navigate() {
 
 function applySocial(action) {
   try {
-    const social = transition(state.social, action);
-    const messages = { message: '訊息已送出。', petPlay: '兩隻糰子開心地一起玩！雙方各獲得 5 XP。', request: '好友邀請已送出，切換對方角色接受。', accept: '已成為好友！', joinGroup: '已加入群組。', createEvent: '聚餐已建立，可以開始邀請朋友。', invite: '邀請已送出，等待朋友回覆。', joinEvent: '報名成功，餐桌上有你的位子！', leaveEvent: '已退出聚餐。', post: '貼文已發布，寵物成長與金幣已更新。', skin: '造型已穿戴！', nextDay: '已模擬隔天，可以再次發文領取獎勵。', actor: '已切換示範角色（餐廳排行仍為原本的個人展示資料）。' };
+    const social = photoTypes.has(action.type) ? photoTransition(state.social, action) : transition(state.social, action);
+    let next = { ...state, social };
+    if (action.type === 'react') {
+      const p = social.photos.find(item => item.id === action.id);
+      const wants = p.reactions.some(r => r.actor === social.actor && r.kind === 'want');
+      // The saved list belongs to the main demo user, so only "you" syncs it.
+      if (action.kind === 'want' && wants && social.actor === 'you' && !state.saved.includes(p.place)) next = { ...next, saved: [...state.saved, p.place] };
+      const name = restaurants.get(p.place).name;
+      const host = p.actor === 'you' ? '「你」' : people[p.actor];
+      const notes = { want: wants ? '已加入想吃' + (social.actor === 'you' ? '，也存進想去清單' : '') + '。' : '已取消想吃。',
+        together: '已約 ' + host + ' 下週六一起去' + name + '，切換成 ' + host + ' 就能回覆。' };
+      if (save(next, notes[action.kind])) render();
+      return;
+    }
+    if (action.type === 'joinEvent' && page === 'activity') {
+      if (save(next, '已確認赴約！到聚餐頁看看還有誰。')) render();
+      return;
+    }
+    const messages = { deletePhoto: '照片已刪除。', message: '訊息已送出。', petPlay: '兩隻糰子開心地一起玩！雙方各獲得 5 XP。', request: '好友邀請已送出，切換對方角色接受。', accept: '已成為好友！', joinGroup: '已加入群組。', createEvent: '聚餐已建立，可以開始邀請朋友。', invite: '邀請已送出，等待朋友回覆。', joinEvent: '報名成功，餐桌上有你的位子！', leaveEvent: '已退出聚餐。', post: '貼文已發布，寵物成長與金幣已更新。', skin: '造型已穿戴！', nextDay: '已模擬隔天，可以再次發文領取獎勵。', actor: '已切換示範角色（餐廳排行仍為原本的個人展示資料）。' };
     if (save({ ...state, social }, messages[action.type])) {
       render();
       if (action.type === 'post') {
@@ -412,11 +650,39 @@ document.addEventListener('click', event => {
   const data = button.dataset;
   if (data.dismissGrowth !== undefined) {
     button.closest('.growth-receipt').remove();
+  } else if (data.draftPlace) {
+    const d = draftAt(button);
+    d.place = d.place === data.draftPlace ? '' : data.draftPlace;
+    const index = drafts.indexOf(d);
+    render();
+    view.querySelector('[data-draft="' + index + '"] [data-draft-place="' + data.draftPlace + '"]')?.focus();
+  } else if (data.draftRemove !== undefined) {
+    drafts.splice(Number(data.draftRemove), 1);
+    render();
+  } else if (data.recordSample !== undefined) {
+    if (drafts.length > 4) notify('一次最多 6 張，先發布或移除幾張。');
+    else addSamples();
+  } else if (data.recordPublish !== undefined) {
+    publishDrafts();
+  } else if (data.photoReact) {
+    applySocial({ type: 'react', id: data.id, kind: data.photoReact });
+  } else if (data.photoDelete) {
+    if (window.confirm('刪除這張照片？朋友也將看不到它。')) applySocial({ type: 'deletePhoto', id: data.photoDelete });
+  } else if (data.photoExport) {
+    exportPhoto(data.photoExport).catch(() => notify('圖片產生失敗，請再試一次。'));
+  } else if (data.mapScope) {
+    mapScope = data.mapScope; mapFocus = '';
+    render();
+  } else if (data.mapPlace !== undefined) {
+    mapFocus = mapFocus === data.mapPlace ? '' : data.mapPlace;
+    render();
+    view.querySelector('.photo-map + .section-heading')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   } else if (data.social) {
     applySocial({ type: data.social, id: data.id, target: data.target });
   } else if (data.reset !== undefined) {
-    if (!window.confirm('還原全部展示資料？將重設評價、收藏、好友、群組、聚餐、貼文與寵物。原版紀錄不受影響。')) return;
-    if (!save({ ...createDemoState(), social: createSocialState() }, '展示資料已還原，可以開始下一輪 Demo。')) return;
+    if (!window.confirm('還原全部展示資料？將重設照片、評價、收藏、好友、群組、聚餐、貼文與寵物。原版紀錄不受影響。')) return;
+    if (!save({ ...createDemoState(), social: freshSocial() }, '展示資料已還原，可以開始下一輪 Demo。')) return;
+    drafts = []; mapScope = 'friends'; mapFocus = '';
     query = ''; selected = null; page = 'activity'; listMap = false; tourStep = 0;
     Object.keys(filters).forEach(key => { filters[key] = ''; });
     navigate();

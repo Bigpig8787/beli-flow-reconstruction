@@ -11,13 +11,16 @@ const files = {
   '/ranking.mjs': ['ranking.mjs', 'text/javascript'],
   '/social.mjs': ['social.mjs', 'text/javascript'],
   '/social-ui.mjs': ['social-ui.mjs', 'text/javascript'],
+  '/photos.mjs': ['photos.mjs', 'text/javascript'],
+  '/photo-ui.mjs': ['photo-ui.mjs', 'text/javascript'],
   '/maps.mjs': ['maps.mjs', 'text/javascript'],
   '/styles.css': ['styles.css', 'text/css'],
 };
 
 const server = createServer(async (request, response) => {
-  const asset = files[request.url];
-  if (!Object.hasOwn(files, request.url)) return response.writeHead(404).end();
+  const pathname = request.url.split('?', 1)[0];
+  if (!Object.hasOwn(files, pathname)) return response.writeHead(404).end();
+  const asset = files[pathname];
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return response.writeHead(405, { Allow: 'GET, HEAD' }).end();
   }

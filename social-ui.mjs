@@ -8,7 +8,7 @@ const options = items => items.map(([value,label]) => `<option value="${esc(valu
 export function socialToolbar(s) {
   return `<aside class="role-bar"><div><strong>多人互動展示</strong><small>切換角色模擬朋友操作 · 資料只存在此瀏覽器</small></div><label>目前角色<select id="demo-actor">${Object.entries(people).map(([id,name]) => `<option value="${id}" ${s.actor === id ? 'selected' : ''}>${name}</option>`).join('')}</select></label></aside>`;
 }
-function petCard(s, id, groupId = '') {
+export function petCard(s, id, groupId = '') {
   const pet = s.pets[id], stage = petStage(pet.xp), skin = skins.find(item => item.id === pet.skin);
   return `<article class="pet-card skin-${skin.id}"><div class="pet-character"><span>${stage.icon}</span><i>${skin.icon}</i></div><strong>${people[id]}的糰子</strong><p>${stage.name} · ${pet.xp} XP</p>${badge(skin.name)}${groupId && id !== s.actor ? `<div class="pet-play">${button((s.petInteractions ?? []).some(i => i.day === demoDay(s) && [i.actor,i.target].includes(s.actor) && [i.actor,i.target].includes(id)) ? '✓ 今天玩過了' : '一起玩 +5 XP','petPlay',groupId,id,(s.petInteractions ?? []).some(i => i.day === demoDay(s) && [i.actor,i.target].includes(s.actor) && [i.actor,i.target].includes(id)))}</div>` : ''}</article>`;
 }
