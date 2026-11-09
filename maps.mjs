@@ -1,4 +1,7 @@
-// Google Maps links for real user-entered places, separate from demo coordinates.
+// Shared Google Maps embed from the reference site, centered on downtown Taichung.
+export const googleExploreEmbedUrl = 'https://www.google.com/maps/embed?pb=!1m10!1m8!1m3!1d29125.471413490483!2d120.67364819999999!3d24.1477358!3m2!1i1024!2i768!4f13.1!5e0!3m2!1szh-TW!2stw!4v1794151460460!5m2!1szh-TW!2stw';
+
+// Search and directions for real user-entered places.
 export function mapsUrl(query, mode = 'search') {
   const text = String(query ?? '').trim();
   if (!text || text.length > 180) throw new Error('請輸入 1–180 字的地點或地址');
