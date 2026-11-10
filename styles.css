@@ -306,6 +306,25 @@ input::placeholder,textarea::placeholder { color: #687078; }
   font-size: 12px;
 }
 .notice:empty { display: none; }
+/* Set only one vertical edge: inherited top + bottom stretched the toast. */
+#status.notice {
+  top: auto;
+  right: auto;
+  height: auto;
+  min-height: 0;
+  width: max-content;
+  max-width: min(calc(100% - 24px), 440px);
+  padding: 10px 16px;
+  line-height: 1.6;
+  border: 1px solid #ffffffb3;
+  border-radius: 14px;
+  background: rgb(244 249 243 / 82%);
+  color: #223b32;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 18px #183b3020;
+  pointer-events: none;
+}
 dialog {
   width: min(calc(100% - 18px),420px);
   max-height: calc(100dvh - 24px);
