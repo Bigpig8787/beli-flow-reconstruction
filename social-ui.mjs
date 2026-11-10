@@ -6,7 +6,7 @@ const names = ids => ids.map(id => people[id]).join('、');
 const badge = text => `<span class="demo-badge">${text}</span>`;
 const options = items => items.map(([value,label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('');
 export function socialToolbar(s) {
-  return `<aside class="role-bar"><div><strong>多人互動展示</strong><small>切換角色模擬朋友操作 · 資料只存在此瀏覽器</small></div><label>目前角色<select id="demo-actor">${Object.entries(people).map(([id,name]) => `<option value="${id}" ${s.actor === id ? 'selected' : ''}>${name}</option>`).join('')}</select></label></aside>`;
+  return `<aside class="role-bar" aria-label="多人互動展示角色切換" title="切換角色模擬朋友操作，資料只存在此瀏覽器"><strong>多人互動展示</strong><label>角色<select id="demo-actor">${Object.entries(people).map(([id,name]) => `<option value="${id}" ${s.actor === id ? 'selected' : ''}>${name}</option>`).join('')}</select></label></aside>`;
 }
 export function petCard(s, id, groupId = '') {
   const pet = s.pets[id], stage = petStage(pet.xp), skin = skins.find(item => item.id === pet.skin);

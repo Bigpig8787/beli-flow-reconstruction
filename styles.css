@@ -814,6 +814,35 @@ dialog { max-height: calc(100dvh - 24px); padding: 20px; }
 .profile-link > span { font-size: 20px; color: var(--accent); }
 .profile-link small { width: 100%; font-weight: 400; color: #a3324a; font-size: 11px; }
 .profile-reset { display: block; margin: 20px auto 0; color: var(--quiet); }
+/* Compact glass role switcher floats above navigation without taking feed space. */
+.role-bar {
+  position: fixed;
+  z-index: 21;
+  left: 50%;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 12px);
+  transform: translateX(-50%);
+  width: min(calc(100% - 24px), calc(var(--app-width) - 24px));
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid #ffffffb3;
+  border-radius: 18px;
+  background: rgb(244 249 243 / 82%);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 4px 22px #183b3020;
+}
+.role-bar strong { font-size: 12px; white-space: nowrap; color: var(--accent); }
+.role-bar label { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; white-space: nowrap; }
+.role-bar select { width: 96px; min-height: 44px; margin: 0; padding: 6px 8px; border-color: #c6d5ca; background: #ffffff80; font-size: 16px; }
+main.shell:has(.role-bar) { padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 104px); }
+body:has(.role-bar) .notice { bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 80px); }
+html:has(.role-bar) { scroll-padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 84px); }
+@media (prefers-reduced-transparency: reduce) { .role-bar { background: #f4f9f3; } }
 @media (max-width: 360px) {
   .review-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pet-home { grid-template-columns: minmax(0, 1fr); }
