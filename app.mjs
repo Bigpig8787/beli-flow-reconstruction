@@ -4,9 +4,17 @@ import { createSocialState, transition, people, petStage, skins } from './social
 import { community, gatherings, pets, growthReceipt, socialToolbar, petCard } from './social-ui.mjs';
 import { beginRanking, compare, finishRanking, moods, opponent, progress, score } from './ranking.mjs';
 import { readExif, nearbyPlaces, placeCoords, photoTransition, photoTypes, seedPhotos, localStamp, visiblePhotos, petMemories } from './photos.mjs';
-import { food, activityPage, recordPage, reviewPage, photoMapPage, hasFriends } from './photo-ui.mjs';
+import { food, activityPage, recordPage, reviewPage, photoMapPage, hasFriends, photoSource } from './photo-ui.mjs';
+import { previewActivity } from './ui-preview.mjs';
 
-const key = 'table-notes-demo-v2';
+const requestedUi = new URLSearchParams(location.search).get('ui');
+const previewUi = ['feed', 'album', 'friends'].includes(requestedUi) ? requestedUi : '';
+const key = previewUi ? 'fomery-ui-preview-' + previewUi : 'table-notes-demo-v2';
+if (previewUi) {
+  document.documentElement.dataset.ui = previewUi;
+  document.querySelector('.brand').href = '?ui=' + previewUi;
+  document.querySelector('.demo-tools').innerHTML = '<a href="ui-options.html" class="preview-options-link" target="_top">比較方案</a>';
+}
 const empty = { ranked: [], saved: [], recent: [] };
 const view = document.querySelector('#view');
 const dialog = document.querySelector('#dialog');
@@ -28,6 +36,7 @@ const tour = [
 const navParent = { community: 'profile', gatherings: 'profile', pets: 'profile', lists: 'profile', search: 'profile', explore: 'map', tour: 'profile' };
 let noticeTimer;
 let page = 'activity';
+let previewPhoto = '';
 let drafts = [];
 let mapScope = 'friends';
 let mapFocus = '';
@@ -229,7 +238,8 @@ function render() {
       + (listMap ? mapPanel([...been, ...saved.filter(place => !been.some(row => row.id === place.id))])
         : '<h3>吃過</h3>' + rows(been) + '<h3>想去</h3>' + rows(saved));
   } else if (page === 'activity') {
-    view.innerHTML = activityPage(state.social, socialToolbar(state.social));
+    const toolbar = socialToolbar(state.social);
+    view.innerHTML = previewUi ? previewActivity(previewUi, state.social, toolbar, previewPhoto) : activityPage(state.social, toolbar);
   } else if (page === 'record') {
     view.innerHTML = recordPage(state.social, drafts);
   } else if (page === 'review') {
@@ -331,9 +341,10 @@ function publishDrafts() {
   if (!save({ ...state, social }, '已發布 ' + count + ' 張照片' + (growth ? '，糰子 +' + growth.xp + ' XP' : '') + '。')) return;
   drafts = [];
   page = 'activity';
+  previewPhoto = '';
   navigate();
   if (growth) {
-    view.querySelector('.record-cta')?.insertAdjacentHTML('beforebegin', growthReceipt(growth));
+    view.querySelector(previewUi ? '.preview-content' : '.record-cta')?.insertAdjacentHTML('beforebegin', growthReceipt(growth));
     view.querySelector('.growth-receipt')?.focus({ preventScroll: true });
   }
 }
@@ -349,7 +360,8 @@ async function exportPhoto(id) {
   const canvas = document.createElement('canvas');
   canvas.width = 1080; canvas.height = 810;
   const ctx = canvas.getContext('2d');
-  if (p.src.startsWith('data:')) ctx.drawImage(await loadImage(p.src), 0, 0, 1080, 810);
+  const image = photoSource(p.src);
+  if (image) ctx.drawImage(await loadImage(image), 0, 0, 1080, 810);
   else {
     const art = restaurants.get(p.src.slice(4)) ?? place;
     const gradient = ctx.createLinearGradient(0, 0, 1080, 810);
@@ -650,6 +662,9 @@ document.addEventListener('click', event => {
   const data = button.dataset;
   if (data.dismissGrowth !== undefined) {
     button.closest('.growth-receipt').remove();
+  } else if (previewUi && data.uiPhoto !== undefined) {
+    previewPhoto = data.uiPhoto;
+    navigate();
   } else if (data.draftPlace) {
     const d = draftAt(button);
     d.place = d.place === data.draftPlace ? '' : data.draftPlace;
@@ -683,6 +698,7 @@ document.addEventListener('click', event => {
     if (!window.confirm('還原全部展示資料？將重設照片、評價、收藏、好友、群組、聚餐、貼文與寵物。原版紀錄不受影響。')) return;
     if (!save({ ...createDemoState(), social: freshSocial() }, '展示資料已還原，可以開始下一輪 Demo。')) return;
     drafts = []; mapScope = 'friends'; mapFocus = '';
+    previewPhoto = '';
     query = ''; selected = null; page = 'activity'; listMap = false; tourStep = 0;
     Object.keys(filters).forEach(key => { filters[key] = ''; });
     navigate();
@@ -717,7 +733,10 @@ document.addEventListener('click', event => {
     selected = null;
     navigate();
   } else if (data.page || data.back !== undefined) {
-    if (data.page) page = data.page;
+    if (data.page) {
+      page = data.page;
+      previewPhoto = '';
+    }
     if (page === 'tour') tourStep = 0;
     selected = null;
     navigate();

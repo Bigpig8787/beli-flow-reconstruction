@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 
 const host = '127.0.0.1';
-const port = 8766;
+const port = Number(process.env.PORT ?? 8766);
 const files = {
   '/': ['index.html', 'text/html'],
   '/index.html': ['index.html', 'text/html'],
@@ -15,7 +15,13 @@ const files = {
   '/photo-ui.mjs': ['photo-ui.mjs', 'text/javascript'],
   '/maps.mjs': ['maps.mjs', 'text/javascript'],
   '/styles.css': ['styles.css', 'text/css'],
+  '/ui-options.html': ['ui-options.html', 'text/html'],
+  '/ui-preview.css': ['ui-preview.css', 'text/css'],
+  '/ui-preview.mjs': ['ui-preview.mjs', 'text/javascript'],
 };
+for (const id of [4, 7, 9, 10, 12, 13, 14, 16]) {
+  files[`/preview-photos/${id}.jpg`] = [`preview-photos/${id}.jpg`, 'image/jpeg'];
+}
 
 const server = createServer(async (request, response) => {
   const pathname = request.url.split('?', 1)[0];
@@ -27,7 +33,7 @@ const server = createServer(async (request, response) => {
   const [name, type] = asset;
   try {
     const body = await readFile(new URL(name, import.meta.url));
-    response.writeHead(200, { 'Content-Type': type + '; charset=utf-8', 'Content-Length': body.length });
+    response.writeHead(200, { 'Content-Type': type.startsWith('text/') ? type + '; charset=utf-8' : type, 'Content-Length': body.length });
     return response.end(request.method === 'HEAD' ? undefined : body);
   } catch {
     return response.writeHead(500).end('Unable to load the local file.');
@@ -35,7 +41,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.on('error', error => {
-  console.error(error.code === 'EADDRINUSE' ? 'Port 8766 is already in use.' : error.message);
+  console.error(error.code === 'EADDRINUSE' ? 'Port ' + port + ' is already in use.' : error.message);
   process.exitCode = 1;
 });
 server.listen(port, host, () => console.log('Open http://' + host + ':' + port));

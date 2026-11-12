@@ -16,9 +16,16 @@ export function petOverlay(pet, handle = '') {
 }
 
 export function photoImage(src, place, alt) {
-  if (validPhotoSrc(src) && src.startsWith('data:')) return `<img src="${src}" alt="${esc(alt)}">`;
+  const image = photoSource(src);
+  if (image) return `<img src="${image}" alt="${esc(alt)}">`;
   const p = restaurants.get(src?.slice(4)) ?? place;
   return `<div class="photo-art art-${p.price}" role="img" aria-label="${esc(alt)}"><span>${food[p.cuisine] ?? '🍽'}</span></div>`;
+}
+
+export function photoSource(src) {
+  if (validPhotoSrc(src) && src.startsWith('data:')) return src;
+  const sample = /^art:(4|7|9|10|12|13|14|16)$/.exec(src);
+  return globalThis.document?.documentElement.dataset.ui && sample ? `./preview-photos/${sample[1]}.jpg` : '';
 }
 
 export function photoFrame(p, handle = '') {
@@ -154,8 +161,10 @@ export function photoMapPage(s, scope, focus) {
   const pins = [...byPlace].map(([id, items]) => {
     const c = placeCoords.get(id), place = restaurants.get(id);
     const x = 8 + (c.lng - minLng) / (maxLng - minLng) * 84, y = 10 + (maxLat - c.lat) / (maxLat - minLat) * 80;
+    const thumbnail = globalThis.document?.documentElement.dataset.ui && photoSource(items[0].src);
     return `<button type="button" class="photo-pin${focus === id ? ' active' : ''}" style="--x:${x.toFixed(1)}%;--y:${y.toFixed(1)}%" data-map-place="${id}" aria-label="${esc(place.name)}，${items.length} 張照片">`
-      + `<span>${food[place.cuisine]}</span>${items.length > 1 ? `<b>${items.length}</b>` : ''}</button>`;
+      + (thumbnail ? `<img src="${thumbnail}" alt="">` : `<span>${food[place.cuisine]}</span>`)
+      + `${items.length > 1 ? `<b>${items.length}</b>` : ''}</button>`;
   }).join('');
   const list = focus && byPlace.has(focus) ? byPlace.get(focus) : photos;
   return `<p class="eyebrow">PHOTO MAP</p><h2 id="view-title">照片地圖</h2>`
