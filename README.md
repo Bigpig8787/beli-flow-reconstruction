@@ -2,6 +2,8 @@
 
 原生 HTML、CSS、JavaScript 製作的 Beli-inspired 非官方展示模型。採 GitHub Pages 靜態發布，沒有付費 API 或後端服務。
 
+**[在手機開啟 andy-develop 預覽](https://an4131754-collab.github.io/fomery-andy-preview/)**。開發預覽使用獨立網址。
+
 ## GitHub Pages 發布
 
 已加入 `.github/workflows/pages.yml`。推送至 `main` 會先測試，再用 `build.mjs` 產生 `dist/` 並發布。資源採相對路徑，支援 GitHub Pages 的專案子目錄。
