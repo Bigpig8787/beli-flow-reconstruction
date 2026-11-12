@@ -1,3 +1,11 @@
+.record-page :is(input, select, textarea, button, summary, [data-pet-handle]) {
+  scroll-margin-block: 8px;
+}
+
+html:has(.record-page .publish-bar) {
+  scroll-padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 84px);
+}
+
 .record-controls {
   display: flex;
   align-items: center;
