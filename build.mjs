@@ -1,7 +1,7 @@
 import { mkdir, copyFile, cp, writeFile } from 'node:fs/promises';
 const root = new URL('./', import.meta.url);
 await mkdir(new URL('dist/', root), { recursive: true });
-for (const name of ['index.html','styles.css','app.mjs','catalog.mjs','ranking.mjs','social.mjs','social-ui.mjs','maps.mjs','photos.mjs','photo-ui.mjs','ui-options.html','ui-preview.css','ui-preview.mjs']) {
+for (const name of ['index.html','styles.css','app.mjs','catalog.mjs','ranking.mjs','social.mjs','social-ui.mjs','maps.mjs','photos.mjs','photo-ui.mjs','ui-options.html','ui-preview.css','ui-preview.mjs','record.css']) {
   await copyFile(new URL(name,root), new URL('dist/'+name,root));
 }
 await cp(new URL('preview-photos/', root), new URL('dist/preview-photos/', root), { recursive: true });

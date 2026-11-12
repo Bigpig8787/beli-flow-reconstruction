@@ -1,7 +1,7 @@
 import { restaurants } from './catalog.mjs';
 import { visiblePhotos } from './photos.mjs';
 import { people } from './social.mjs';
-import { photoCard, photoFrame, invitesPanel } from './photo-ui.mjs';
+import { photoCard, photoFrame, invitesPanel, hasFriends } from './photo-ui.mjs';
 
 function tiles(photos, showName = true) {
   return '<div class="preview-tiles">' + photos.map(photo => {
@@ -42,7 +42,7 @@ function byFriend(photos) {
     ${tiles(items, false)}</section>`).join('');
 }
 
-export function previewActivity(mode, state, toolbar, selection) {
+export function journalActivity(mode, state, toolbar, selection) {
   const friends = visiblePhotos(state, 'friends');
   const mine = visiblePhotos(state, 'mine');
   const all = [...friends, ...mine].sort((a, b) => b.takenAt.localeCompare(a.takenAt));
@@ -60,6 +60,7 @@ export function previewActivity(mode, state, toolbar, selection) {
   }[mode]();
   return `<div class="preview-heading"><h2 id="view-title">${title}</h2></div>
     <div class="preview-content">${content || '<p class="empty-state">還沒有照片。按下方「記錄」加入第一餐。</p>'}</div>
+    ${hasFriends(state) ? '' : '<p><button type="button" data-page="community">邀請朋友</button></p>'}
     ${invitesPanel(state)}
     <details class="preview-tools"><summary>展示設定</summary>${toolbar}
       <p>切換角色試用好友互動。紀錄只保存在此瀏覽器。</p></details>`;

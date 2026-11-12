@@ -42,16 +42,15 @@ export function photoCard(s, p) {
   const myInvite = together.find(r => r.actor === s.actor);
   const summary = [want.length ? names(want.map(r => r.actor)) + ' 想吃' : '', together.length ? names(together.map(r => r.actor)) + ' 想約一起去' : ''].filter(Boolean).join(' · ');
   const actions = mine
-    ? `${p.pet ? `<button type="button" data-photo-export="${esc(p.id)}">⇪ 分享合照圖片</button>` : ''}<button type="button" class="quiet" data-photo-delete="${esc(p.id)}">刪除</button>`
-    : `<button type="button" class="react${iWant ? ' on' : ''}" aria-pressed="${iWant}" data-photo-react="want" data-id="${esc(p.id)}">${iWant ? '♥ 想吃' : '♡ 想吃'}</button>`
-      + (myInvite ? `<button type="button" class="react on" data-page="gatherings">✓ 已約 · 看回覆</button>`
-        : `<button type="button" class="react" data-photo-react="together" data-id="${esc(p.id)}">🍽 下次一起</button>`);
-  return `<article class="photo-card" id="photo-${esc(p.id)}"><header><span class="avatar">${(mine ? '你' : people[p.actor]).slice(0, 1)}</span>`
+    ? `${p.pet ? `<button type="button" data-photo-export="${esc(p.id)}">分享合照</button>` : ''}<button type="button" class="quiet" data-photo-delete="${esc(p.id)}">刪除</button>`
+    : `<button type="button" class="react${iWant ? ' on' : ''}" aria-pressed="${iWant}" data-photo-react="want" data-id="${esc(p.id)}"><span aria-hidden="true">${iWant ? '♥' : '♡'}</span> 想吃</button>`
+      + (myInvite ? `<button type="button" class="react on" data-page="gatherings">查看邀約</button>`
+        : `<button type="button" class="react" data-photo-react="together" data-id="${esc(p.id)}">下次一起</button>`);
+  return `<article class="photo-card" id="photo-${esc(p.id)}"><header><span class="avatar" aria-hidden="true">${(mine ? '你' : people[p.actor]).slice(0, 1)}</span>`
     + `<div><strong>${mine ? '你' : people[p.actor]}</strong><small>${when(p.takenAt)}${p.with.length ? ' · 和 ' + names(p.with) : ''}</small></div>`
     + `${mine ? `<span class="demo-badge">${p.audience === 'friends' ? '好友可見' : '只有我'}</span>` : ''}</header>`
     + photoFrame(p)
-    + `<div class="photo-body"><button type="button" class="text-button" data-detail="${place.id}"><h3>${esc(place.name)} ↗</h3></button>`
-    + `<p class="muted">${place.district} · ${place.cuisine} · ${'＄'.repeat(place.price)}${p.pet ? ' · 糰子入鏡' : ''}</p>`
+    + `<div class="photo-body"><h3><button type="button" class="text-button" data-detail="${place.id}">${esc(place.name)} <span aria-hidden="true">↗</span></button></h3>`
     + (p.caption ? `<p>${esc(p.caption)}</p>` : '')
     + (summary ? `<p class="reaction-summary">${esc(summary)}</p>` : '')
     + `<div class="photo-actions">${actions}</div></div></article>`;
@@ -74,55 +73,69 @@ export function hasFriends(s) {
   return Object.keys(people).some(id => id !== s.actor && areFriends(s, s.actor, id));
 }
 
-export function activityPage(s, toolbar) {
-  const friends = visiblePhotos(s, 'friends');
-  const mine = visiblePhotos(s, 'mine');
-  return `<div class="page-heading"><div><p class="eyebrow">YOUR DAILY BITES</p><h2 id="view-title">朋友最近吃了什麼？</h2></div></div>`
-    + toolbar + invitesPanel(s)
-    + `<button type="button" class="record-cta" data-page="record"><span aria-hidden="true">📸</span><span><strong>記下這一餐</strong><small>從相簿選照片，自動帶入日期與附近店家</small></span></button>`
-    + (hasFriends(s)
-      ? (friends.length ? friends.slice(0, 8).map(p => photoCard(s, p)).join('')
-        : '<p class="empty-state">朋友還沒分享照片。先記下你的這一餐，他們會看到。</p>')
-      : `<section class="diary-intro"><h3>還沒有朋友加入也沒關係</h3><p>這裡會先當作你的美食日記：每張照片都記得時間、店家和一起吃的人。</p><button type="button" data-page="community">邀請朋友</button></section>`)
-    + `<div class="section-heading"><h3>我的美食日記</h3><button type="button" data-page="review">回顧 ↗</button></div>`
-    + (mine.length ? mine.slice(0, 3).map(p => photoCard(s, p)).join('') : '<p class="empty-state">第一張照片，就從今天這一餐開始。</p>');
+// ---------- Record ----------
+export function recordProgress(drafts) {
+  const missingPlace = drafts.filter(draft => !restaurants.has(draft.place)).length;
+  const missingTime = drafts.filter(draft => !Number.isFinite(Date.parse(draft.takenAt))).length;
+  const remaining = [missingPlace && `尚有 ${missingPlace} 張未選店家`, missingTime && `${missingTime} 張待確認時間`].filter(Boolean);
+  return remaining.join(' · ') || `${drafts.length} 張照片可發布`;
 }
 
-// ---------- Record ----------
-export function recordPage(s, drafts) {
+export function recordPage(s, drafts, { importing = false, message = '' } = {}) {
   const pet = s.pets[s.actor];
   const friendIds = Object.keys(people).filter(id => id !== s.actor && areFriends(s, s.actor, id));
   const options = [...restaurants.values()];
+  const placeOption = (place, selected, hint) =>
+    `<option value="${place.id}"${place.id === selected ? ' selected' : ''}>${esc(place.name)} · ${esc(hint)}</option>`;
   const card = (d, i) => {
     const place = restaurants.get(d.place);
     const petNow = d.petOn ? { ...d.pet, stage: petStage(pet.xp).icon, skin: pet.skin } : null;
-    return `<section class="draft-card" data-draft="${i}" aria-label="第 ${i + 1} 張照片">`
-      + `<div class="photo-frame editable" data-pet-frame="${i}">${photoImage(d.src, place ?? restaurants.get(d.src.slice(4)) ?? { price: 2, cuisine: '' }, '待發布的照片')}${petOverlay(petNow, `data-pet-handle="${i}" role="slider" tabindex="0" aria-label="拖曳調整糰子位置，可用方向鍵微調" aria-valuetext="水平 ${Math.round(d.pet.x * 100)}%，垂直 ${Math.round(d.pet.y * 100)}%"`)}</div>`
-      + `<div class="draft-fields">`
-      + `<label>拍攝時間<input type="datetime-local" data-draft-field="takenAt" value="${esc(d.takenAt)}"><small class="muted">${d.dateSource === 'exif' ? '已從照片帶入' : '照片沒有拍攝時間，先用檔案時間，可修改'}</small></label>`
-      + `<fieldset><legend>在哪裡吃的？</legend>`
-      + (d.candidates.length
-        ? `<p class="muted">依照片位置，可能是：</p><div class="candidates">${d.candidates.map(c => `<button type="button" data-draft-place="${c.place.id}" aria-pressed="${d.place === c.place.id}">📍 ${esc(c.place.name)}<small>${c.km < 1 ? Math.round(c.km * 1000) + ' m' : c.km.toFixed(1) + ' km'}</small></button>`).join('')}</div>`
-        : `<p class="muted">${d.hadGps ? '附近沒有收錄的店家，' : '照片沒有位置資訊，'}請手動選擇。</p>`)
-      + `<select data-draft-field="place" aria-label="手動選擇店家"><option value="">${d.candidates.length ? '都不是？手動選擇' : '選擇店家'}</option>${options.map(o => `<option value="${o.id}"${d.place === o.id ? ' selected' : ''}>${esc(o.name)} · ${o.district}</option>`).join('')}</select></fieldset>`
-      + `<label>說點什麼<textarea data-draft-field="caption" maxlength="140" rows="2" placeholder="這一餐最想記住的是？">${esc(d.caption)}</textarea></label>`
-      + (friendIds.length ? `<fieldset><legend>和誰一起</legend><div class="chip-checks">${friendIds.map(id => `<label><input type="checkbox" data-draft-with="${id}"${d.with.includes(id) ? ' checked' : ''}> ${people[id]}</label>`).join('')}</div></fieldset>` : '')
-      + `<fieldset><legend>分享給</legend><div class="chip-checks">`
+    const nearby = d.candidates.map(({ place, km }) =>
+      placeOption(place, d.place, km < 1 ? Math.round(km * 1000) + ' 公尺' : km.toFixed(1) + ' 公里'));
+    const other = options.filter(option => !d.candidates.some(candidate => candidate.place.id === option.id))
+      .map(option => placeOption(option, d.place, option.district));
+    return `<section class="draft-card" data-draft="${i}" aria-labelledby="draft-title-${i}">
+      <header class="draft-heading"><h3 id="draft-title-${i}">第 ${i + 1} 張照片</h3><button type="button" class="quiet" data-draft-remove="${i}" aria-label="移除第 ${i + 1} 張照片">移除</button></header>
+      <div class="draft-fields">
+        <div class="draft-main">
+          <div class="photo-frame editable" data-pet-frame="${i}">${photoImage(d.src, place ?? { price: 2, cuisine: '' }, '待發布的照片')}${petOverlay(petNow, `data-pet-handle="${i}" role="slider" tabindex="0" aria-label="拖曳調整糰子位置，可用方向鍵微調" aria-valuetext="水平 ${Math.round(d.pet.x * 100)}%，垂直 ${Math.round(d.pet.y * 100)}%"`)}</div>
+          <label>用餐店家
+            <select data-draft-field="place" required>
+              <option value="">選擇店家</option>
+              ${nearby.length ? `<optgroup label="照片附近的店家">${nearby.join('')}</optgroup><optgroup label="其他店家">${other.join('')}</optgroup>` : other.join('')}
+            </select>
+            ${nearby.length && !place ? '<small class="muted">有附近店家建議</small>' : ''}
+          </label>
+        </div>
+        <fieldset><legend>誰可以看</legend><div class="chip-checks">`
       + `<label><input type="radio" name="audience-${i}" value="friends" data-draft-field="audience"${d.audience === 'friends' ? ' checked' : ''}> 好友</label>`
-      + `<label><input type="radio" name="audience-${i}" value="private" data-draft-field="audience"${d.audience === 'private' ? ' checked' : ''}> 只有我（日記）</label></div></fieldset>`
-      + `<label class="pet-toggle"><input type="checkbox" data-draft-field="petOn"${d.petOn ? ' checked' : ''}> 讓 ${petStage(pet.xp).icon} 糰子入鏡</label>`
+      + `<label><input type="radio" name="audience-${i}" value="private" data-draft-field="audience"${d.audience === 'private' ? ' checked' : ''}> 只有我</label></div></fieldset>`
+      + `<details class="draft-extras" data-draft-extras${d.extrasOpen ? ' open' : ''}>
+          <summary>更多細節</summary>
+          <div class="draft-extras-fields">
+            <label>用餐時間<input type="datetime-local" data-draft-field="takenAt" value="${esc(d.takenAt)}" required><small class="muted">${d.dateSource === 'exif' ? '使用拍攝時間，可修改' : '使用檔案時間，可修改'}</small></label>
+            <label>照片說明 <textarea data-draft-field="caption" maxlength="140" rows="2" placeholder="選填">${esc(d.caption)}</textarea></label>`
+      + (friendIds.length ? `<fieldset><legend>同行者</legend><div class="chip-checks">${friendIds.map(id => `<label><input type="checkbox" data-draft-with="${id}"${d.with.includes(id) ? ' checked' : ''}> ${people[id]}</label>`).join('')}</div></fieldset>` : '')
+      + `<label class="pet-toggle"><input type="checkbox" data-draft-field="petOn"${d.petOn ? ' checked' : ''}> 讓糰子入鏡</label>`
       + (d.petOn ? `<label>糰子大小<input type="range" min="10" max="60" value="${Math.round(d.pet.scale * 100)}" data-draft-field="petScale"></label><p class="muted">在照片上拖曳糰子，放到食物旁邊。</p>` : '')
-      + `<button type="button" class="quiet" data-draft-remove="${i}">移除這張</button></div></section>`;
+      + `</div></details></div></section>`;
   };
-  const ready = drafts.filter(d => d.place).length;
-  return `<p class="eyebrow">RECORD A MEAL</p><h2 id="view-title">記下這一餐</h2>`
-    + `<p class="muted">選照片後會帶入拍攝時間；照片有位置資訊時，推薦附近店家讓你確認。</p>`
-    + `<label class="upload-zone"><input type="file" id="photo-input" accept="image/*" multiple><span aria-hidden="true">🖼</span><strong>從相簿選照片</strong><small>一次最多 6 張</small></label>`
-    + `<button type="button" class="text-button sample-link" data-record-sample>沒有照片？用示範照片試試</button>`
-    + `<p class="privacy-note">🔒 位置只用來推薦店家，不會儲存或分享；朋友只看得到你選的店名。</p>`
+  const full = drafts.length >= 6;
+  const pickerLabel = full ? '已選滿 6 張' : drafts.length ? '新增照片' : '從相簿選照片';
+  return `<div class="record-page">
+    <h2 id="view-title">記下這一餐</h2>
+    <div class="record-controls">
+      <label class="upload-zone"><input type="file" id="photo-input" accept="image/*" multiple aria-describedby="photo-limits"${importing || full ? ' disabled' : ''}><strong>${pickerLabel}</strong></label>
+      ${drafts.length < 5 ? `<button type="button" class="sample-link" data-record-sample${importing ? ' disabled' : ''}>用示範照片</button>` : ''}
+    </div>
+    <p class="record-note" id="photo-limits">最多 6 張，每張 15 MB。支援 JPEG、PNG、WebP 等格式。</p>
+    <p class="record-note">照片座標只用來建議店家，不會儲存或分享。</p>
+    <p class="record-message" role="status" data-record-message>${esc(importing ? '正在讀取照片…' : message)}</p>`
     + drafts.map(card).join('')
-    + (drafts.length ? `<div class="publish-bar"><span>${ready}/${drafts.length} 張已選店家</span><button type="button" class="primary" data-record-publish${ready === drafts.length ? '' : ' disabled'}>發布 ${drafts.length} 張</button></div>` : '')
-    + `<p class="muted record-alt">只想幫餐廳評分排名？<button type="button" class="text-button" data-page="search">找店評價 ↗</button></p>`;
+    + (drafts.length
+      ? `<div class="publish-bar"><span id="record-progress" role="status" data-record-progress>${recordProgress(drafts)}</span><button type="button" class="primary" data-record-publish aria-describedby="record-progress"${importing ? ' disabled' : ''}>發布 ${drafts.length} 張</button></div>`
+      : '<button type="button" class="record-rating text-button" data-page="search">找店評價</button>')
+    + '</div>';
 }
 
 // ---------- Review ----------

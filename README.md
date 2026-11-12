@@ -35,7 +35,7 @@ node serve.mjs
 
 開啟 http://127.0.0.1:8766 。Ctrl+C 停止服務；不要直接雙擊 HTML。
 
-在 `andy-develop` 開啟 [介面比較頁](http://127.0.0.1:8766/ui-options.html)，可並排試用「朋友近況」「每週相簿」「飯友餐桌」。三款各自保存試用資料。照片來源見 [攝影來源](preview-photos/CREDITS.md)。
+在 `andy-develop`，首頁是「朋友近況」。底部點「記錄」，選照片後確認店家與分享對象，日期、同行者與糰子可以在「更多細節」調整。原先的 [介面比較頁](http://127.0.0.1:8766/ui-options.html) 仍可試用，三款各自保存試用資料。照片來源見 [攝影來源](preview-photos/CREDITS.md)。
 
 ## 90 秒社群展示流程
 

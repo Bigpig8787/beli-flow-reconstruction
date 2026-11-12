@@ -32,6 +32,8 @@ html[data-ui="friends"] {
   padding: max(5px, env(safe-area-inset-top)) 18px 5px;
   background: var(--paper);
 }
+[data-ui] .masthead .wordmark { display: block; margin: 0; line-height: 1; }
+[data-ui] .masthead .wordmark a { display: inline-flex; align-items: center; min-height: 44px; }
 [data-ui] .masthead .brand { font-size: 26px; letter-spacing: -.9px; }
 .preview-options-link {
   min-height: 44px;
@@ -103,7 +105,7 @@ html[data-ui]:has(.role-bar) { scroll-padding-bottom: calc(var(--nav-height) + e
 }
 [data-ui] .photo-frame { border-radius: 6px; background: var(--accent-pale); }
 [data-ui] .photo-body { padding: 9px 0 3px; font-size: 15px; }
-[data-ui] .photo-body .text-button { min-height: 44px; }
+[data-ui] .photo-body .text-button { min-height: 44px; font-size: inherit; font-weight: inherit; }
 [data-ui] .photo-body h3 { margin: 0; font-size: 17px; }
 [data-ui] .photo-body p { margin: 3px 0 5px; }
 [data-ui] .photo-actions { margin-top: 3px; }
@@ -114,6 +116,7 @@ html[data-ui]:has(.role-bar) { scroll-padding-bottom: calc(var(--nav-height) + e
   background: transparent;
 }
 [data-ui] .photo-actions .react.on { background: var(--accent-pale); color: var(--accent); }
+[data-ui] .photo-card .demo-badge { color: var(--quiet); padding: 0; background: transparent; }
 .preview-group { margin-bottom: 24px; }
 .preview-group h3 { margin: 0 0 9px; font-size: 16px; }
 .preview-group header { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }

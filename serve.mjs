@@ -17,6 +17,7 @@ const files = {
   '/styles.css': ['styles.css', 'text/css'],
   '/ui-options.html': ['ui-options.html', 'text/html'],
   '/ui-preview.css': ['ui-preview.css', 'text/css'],
+  '/record.css': ['record.css', 'text/css'],
   '/ui-preview.mjs': ['ui-preview.mjs', 'text/javascript'],
 };
 for (const id of [4, 7, 9, 10, 12, 13, 14, 16]) {
