@@ -1,6 +1,26 @@
-# Fomery · 社群與寵物互動 Demo
+# Fomery · 餐桌筆記
 
-原生 HTML、CSS、JavaScript 製作的 Beli-inspired 非官方展示模型。採 GitHub Pages 靜態發布，沒有付費 API 或後端服務。
+以餐照分享和好友近況為主的手機網站。GitHub Pages 提供介面，Supabase 提供 Google 登入、好友關係和餐照同步。
+
+## 本機預覽與多人連線
+
+```sh
+npm ci --ignore-scripts
+node serve.mjs
+```
+
+在 [本機首頁](http://127.0.0.1:8766/) 可檢視十張示範餐照。設定多人連線後，使用者用 Google 登入、設定暱稱，以好友 ID、邀請連結或 QR Code 送出好友申請。對方接受後才看得到彼此的餐照。每位登入者的用餐月曆顯示自己的紀錄。
+
+1. 在團隊的 Supabase 專案套用 [餐桌筆記資料表與存取權限](supabase/migrations/202611240001_meal_journal.sql)。
+2. [設定 Supabase 的 Google 登入](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)，在 Google 設定 Supabase 提供的回呼網址，在 Supabase 的 Redirect URLs 加入網站首頁的確切網址。使用測試模式時，加入兩個驗收用的 Google 帳號。
+3. 啟動本機或執行 `node build.mjs` 前，設定 `FOMERY_SUPABASE_URL` 與 `FOMERY_SUPABASE_PUBLISHABLE_KEY`。建置會把可公開的瀏覽器設定寫入 `dist/journal-config.json`。Google OAuth secret 留在 Supabase 專案設定。
+4. 驗收時在兩支手機用不同 Google 帳號登入。互加後各發布一餐，確認對方的「動態」可見，自己的「個人」月曆可見。用未互加的帳號確認餐照不可讀取。
+
+## 原社群與寵物展示
+
+既有的排行、群組、聚餐和寵物展示集中在 [原示範](http://127.0.0.1:8766/demo.html) 和 [介面比較](http://127.0.0.1:8766/ui-options.html)。
+
+**[在手機開啟 andy-develop 預覽](https://an4131754-collab.github.io/fomery-andy-preview/)**。開發預覽使用獨立網址。
 
 ## GitHub Pages 發布
 
@@ -27,13 +47,16 @@ git push origin main
 
 ## 本機檢視
 
-需要 Node.js 22 或更新版本，無須安裝 npm 套件：
+需要 Node.js 22 或更新版本：
 
 ```sh
+npm ci --ignore-scripts
 node serve.mjs
 ```
 
-開啟 http://127.0.0.1:8766 。Ctrl+C 停止服務；不要直接雙擊 HTML。
+開啟 http://127.0.0.1:8766/demo.html 。Ctrl+C 停止服務。
+
+在 `andy-develop`，首頁是「朋友近況」。底部點「記錄」，選照片後確認店家與分享對象，日期、同行者與糰子可以在「更多細節」調整。原先的 [介面比較頁](http://127.0.0.1:8766/ui-options.html) 仍可試用，三款各自保存試用資料。照片來源見 [攝影來源](preview-photos/CREDITS.md)。
 
 ## 90 秒社群展示流程
 
@@ -68,7 +91,7 @@ node serve.mjs
 
 資料存在瀏覽器 localStorage 的 `table-notes-demo-v2`，重新整理後保留；原版 `table-notes-v1` 不受影響。換網域或清除瀏覽器資料會回到初始狀態。「模擬隔天」會推進所有角色的展示日期。
 
-真實多人版本需另接登入、資料庫與通知服務；GitHub Pages 只提供靜態網站檔案。
+本段描述原社群展示。新版的多人連線使用上述 Supabase 設定。
 
 ## 驗證與建置
 
@@ -79,6 +102,6 @@ node --check social-ui.mjs
 node build.mjs
 ```
 
-測試涵蓋比較排名、初始資料、好友接受、群組與聚餐權限／名額、每日獎勵、進化、金幣與重複換裝。瀏覽器自動化環境不可用，尚未完成視覺與瀏覽器端點擊驗證。
+測試涵蓋月曆與餐照分組、比較排名、初始資料、好友接受、群組與聚餐權限／名額、每日獎勵、進化、金幣與重複換裝。
 
-另有測試驗證聊天室成員權限、訊息長度、寵物互動每日限額、發文成長紀錄及 Google Maps URL 編碼。參考頁 https://an4131754-collab.github.io/table-notes-demo/ 目前無法讀取，因此尚未完成與參考頁的排版比對。
+另有測試驗證聊天室成員權限、訊息長度、寵物互動每日限額、發文成長紀錄及 Google Maps URL 編碼。新版的底欄與色彩沿用《餐桌筆記》的 [介面](https://an4131754-collab.github.io/table-notes-demo/)。

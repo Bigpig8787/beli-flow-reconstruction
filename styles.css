@@ -739,12 +739,6 @@ dialog { max-height: calc(100dvh - 24px); padding: 20px; }
 .bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; }
 .bottom-nav .nav-record span { display: grid; place-items: center; width: 44px; height: 44px; margin-top: -18px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 26px; box-shadow: 0 6px 14px #134f5c40; }
 .bottom-nav .nav-record[aria-current="page"] { background: transparent; }
-.record-cta { display: flex; align-items: center; gap: 14px; width: 100%; margin: 4px 0 22px; padding: 16px; border: 1px dashed #9fb7a3; border-radius: 16px; background: #f1f6ee; text-align: left; }
-.record-cta > span:first-child { font-size: 30px; }
-.record-cta strong { display: block; font-size: 16px; color: var(--accent); }
-.record-cta small { color: var(--quiet); }
-.diary-intro { padding: 18px; border-radius: 16px; background: #f7f3ea; margin-bottom: 22px; }
-.diary-intro h3 { margin: 0 0 6px; } .diary-intro p { margin: 0 0 12px; color: var(--quiet); line-height: 1.6; }
 .invite-strip { padding: 14px 16px; margin-bottom: 18px; border-radius: 16px; background: #fff6e6; border: 1px solid #f0dfbd; }
 .invite-strip h3 { margin: 0 0 8px; font-size: 14px; }
 .invite-item { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 8px 0; border-top: 1px solid #f0dfbd; }
