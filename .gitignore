@@ -2,4 +2,3 @@ output/
 .playwright/
 .playwright-cli/
 dist/
-node_modules/

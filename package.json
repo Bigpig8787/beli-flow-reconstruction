@@ -1,8 +1,0 @@
-{
-  "name": "fomery-preview",
-  "private": true,
-  "dependencies": {
-    "@supabase/supabase-js": "2.119.2",
-    "qrcode-generator": "2.0.4"
-  }
-}

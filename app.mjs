@@ -4,17 +4,9 @@ import { createSocialState, transition, people, petStage, skins } from './social
 import { community, gatherings, pets, growthReceipt, socialToolbar, petCard } from './social-ui.mjs';
 import { beginRanking, compare, finishRanking, moods, opponent, progress, score } from './ranking.mjs';
 import { readExif, nearbyPlaces, placeCoords, photoTransition, photoTypes, seedPhotos, localStamp, visiblePhotos, petMemories } from './photos.mjs';
-import { food, recordPage, recordFooter, reviewPage, photoMapPage, hasFriends, photoSource } from './photo-ui.mjs';
-import { journalActivity } from './ui-preview.mjs';
+import { food, activityPage, recordPage, reviewPage, photoMapPage, hasFriends } from './photo-ui.mjs';
 
-const requestedUi = new URLSearchParams(location.search).get('ui');
-const previewUi = ['feed', 'album', 'friends'].includes(requestedUi) ? requestedUi : '';
-const key = previewUi ? 'fomery-ui-preview-' + previewUi : 'table-notes-demo-v2';
-if (previewUi) {
-  document.documentElement.dataset.ui = previewUi;
-  document.querySelector('.brand').href = '?ui=' + previewUi;
-  document.querySelector('.preview-options-link').hidden = false;
-}
+const key = 'table-notes-demo-v2';
 const empty = { ranked: [], saved: [], recent: [] };
 const view = document.querySelector('#view');
 const dialog = document.querySelector('#dialog');
@@ -36,10 +28,7 @@ const tour = [
 const navParent = { community: 'profile', gatherings: 'profile', pets: 'profile', lists: 'profile', search: 'profile', explore: 'map', tour: 'profile' };
 let noticeTimer;
 let page = 'activity';
-let previewPhoto = '';
 let drafts = [];
-let importingDrafts = null;
-let recordMessage = '';
 let mapScope = 'friends';
 let mapFocus = '';
 let listMap = false;
@@ -240,10 +229,9 @@ function render() {
       + (listMap ? mapPanel([...been, ...saved.filter(place => !been.some(row => row.id === place.id))])
         : '<h3>吃過</h3>' + rows(been) + '<h3>想去</h3>' + rows(saved));
   } else if (page === 'activity') {
-    const toolbar = socialToolbar(state.social);
-    view.innerHTML = journalActivity(previewUi || 'feed', state.social, toolbar, previewPhoto);
+    view.innerHTML = activityPage(state.social, socialToolbar(state.social));
   } else if (page === 'record') {
-    view.innerHTML = recordPage(state.social, drafts, { importing: importingDrafts === drafts, message: recordMessage });
+    view.innerHTML = recordPage(state.social, drafts);
   } else if (page === 'review') {
     view.innerHTML = reviewPage(state.social);
   } else if (page === 'map') {
@@ -266,8 +254,8 @@ function profilePage() {
   const memories = petMemories(s, actor);
   const invites = s.events.filter(e => e.invited.includes(actor)).length;
   const link = (target, icon, label, note = '') => '<button type="button" class="profile-link" data-page="' + target + '"><span aria-hidden="true">' + icon + '</span>' + label + (note ? '<small>' + note + '</small>' : '') + '</button>';
-  return '<h2 id="view-title">我的</h2>'
-    + '<section class="place profile-card"><span class="avatar">' + escape(people[actor].slice(0, 1)) + '</span><h3>' + escape(people[actor]) + '</h3>'
+  return '<p class="eyebrow">MY FOOD PASSPORT</p><h2 id="view-title">我的</h2>' + socialToolbar(s)
+    + '<section class="place profile-card"><span class="avatar">' + escape(people[actor].slice(0, 1)) + '</span><h3>' + escape(people[actor]) + ' · 今天也要好好吃飯</h3>'
     + '<p>照片 <strong>' + mine.length + '</strong> 張 · 吃過 <strong>' + state.ranked.length + '</strong> 家 · 想去 <strong>' + state.saved.length + '</strong> 家</p></section>'
     + '<section class="pet-home">' + petCard(s, actor) + '<div><h3>' + stage.name + '</h3>'
     + '<progress value="' + Math.min(pet.xp, stage.next) + '" max="' + stage.next + '" aria-label="寵物進化進度"></progress>'
@@ -277,26 +265,13 @@ function profilePage() {
     + '<div class="profile-links">'
     + link('community', '♧', '好友與群組') + link('gatherings', '♨', '聚餐', invites ? invites + ' 個邀約' : '')
     + link('lists', '☷', '我的清單') + link('search', '⌕', '找店評價') + link('explore', '◎', 'Google 地圖') + link('tour', '▶', '90 秒導覽')
-    + '</div><details class="preview-tools"><summary>展示設定</summary>' + socialToolbar(s)
-    + '<p>店家與好友為示範資料，紀錄只保存在此瀏覽器。</p><button type="button" data-reset>重設展示資料</button></details>';
+    + '</div><button type="button" class="tour-link profile-reset" data-reset>重設展示資料</button>';
 }
 
 const draftDefaults = () => ({ caption: '', with: [], audience: 'friends', petOn: false, pet: { x: .74, y: .7, scale: .28 }, place: '' });
 
-function focusDraftField(index, field) {
-  const input = view.querySelector(`[data-draft="${index}"] [data-draft-field="${field}"]`);
-  input?.focus();
-  return input;
-}
-
-function refreshRecordFooter() {
-  const { progress, label } = recordFooter(drafts);
-  view.querySelector('[data-record-progress]').textContent = progress;
-  view.querySelector('[data-record-publish]').textContent = label;
-}
-
 async function cropPhoto(file) {
-  if (!file.type.startsWith('image/')) throw new Error('Unsupported image');
+  if (!file.type.startsWith('image/') || file.size > 15 * 1024 * 1024) throw new Error('size');
   const image = await createImageBitmap(file);
   try {
     // Center-crop to 4:3 so the pet position on screen matches the exported image.
@@ -315,71 +290,35 @@ async function cropPhoto(file) {
 }
 
 async function addFiles(files) {
-  if (!files.length || importingDrafts === drafts) return;
   const room = 6 - drafts.length;
   if (room <= 0) { notify('一次最多 6 張，先發布或移除幾張。'); return; }
-  const target = drafts;
-  const skipped = Math.max(0, files.length - room);
   const picked = [...files].slice(0, room);
-  const added = [];
-  let oversized = 0;
   let failed = 0;
-  importingDrafts = target;
-  recordMessage = '正在讀取照片…';
-  render();
   for (const file of picked) {
-    if (file.size > 15 * 1024 * 1024) { oversized += 1; continue; }
     try {
       const exif = file.type === 'image/jpeg' ? readExif(await file.slice(0, 256 * 1024).arrayBuffer()) : {};
       const src = await cropPhoto(file);
       const hadGps = exif.lat !== undefined;
-      added.push({ ...draftDefaults(), src, takenAt: exif.takenAt ?? localStamp(file.lastModified || Date.now()),
+      drafts.push({ ...draftDefaults(), src, takenAt: exif.takenAt ?? localStamp(file.lastModified || Date.now()),
         dateSource: exif.takenAt ? 'exif' : 'file', hadGps, candidates: hadGps ? nearbyPlaces(exif) : [] });
     } catch { failed += 1; }
-    if (drafts !== target) return;
   }
-  if (drafts !== target) return;
-  const first = drafts.length;
-  drafts.push(...added);
-  importingDrafts = null;
-  recordMessage = [
-    added.length ? `已加入 ${added.length} 張照片` : '',
-    oversized ? `${oversized} 張超過 15 MB` : '',
-    failed ? `${failed} 張無法讀取，可改用 JPEG、PNG 或 WebP` : '',
-    skipped ? `${skipped} 張超出 6 張上限` : '',
-  ].filter(Boolean).join('。') + '。';
-  if (page === 'record' && !selected) {
-    render();
-    if (added.length) focusDraftField(first, 'place');
-    else view.querySelector('#photo-input')?.focus();
-  }
+  render();
+  notify((picked.length - failed) + ' 張已加入' + (failed ? '，' + failed + ' 張無法讀取（請用 JPEG、PNG 或 WebP）' : '') + (files.length > room ? '，超過 6 張的部分已略過' : '') + '。');
 }
 
 function addSamples() {
-  const first = drafts.length;
   const near = placeCoords.get('9');
   const stamp = localStamp(Date.now() - 2 * 3600 * 1000);
   drafts.push({ ...draftDefaults(), src: 'art:9', takenAt: stamp, dateSource: 'exif', hadGps: true, candidates: nearbyPlaces({ lat: near.lat + .0004, lng: near.lng - .0003 }) });
   drafts.push({ ...draftDefaults(), src: 'art:12', takenAt: localStamp(Date.now() - 26 * 3600 * 1000), dateSource: 'file', hadGps: false, candidates: [] });
-  recordMessage = '已加入 2 張示範照片。';
   render();
-  focusDraftField(first, 'place');
+  notify('已加入 2 張示範照片：一張有位置資訊，一張沒有。');
 }
 
 function publishDrafts() {
-  if (!drafts.length || importingDrafts === drafts) return;
-  const missing = drafts.findIndex(d => !restaurants.has(d.place) || !Number.isFinite(Date.parse(d.takenAt)));
-  if (missing >= 0) {
-    const placeMissing = !restaurants.has(drafts[missing].place);
-    if (!placeMissing) {
-      drafts[missing].extrasOpen = true;
-      render();
-    }
-    const progress = view.querySelector('[data-record-progress]');
-    progress.textContent = `第 ${missing + 1} 張照片${placeMissing ? '還沒選店家' : '需要確認時間'}`;
-    focusDraftField(missing, placeMissing ? 'place' : 'takenAt')?.setAttribute('aria-invalid', 'true');
-    return;
-  }
+  const missing = drafts.findIndex(d => !d.place);
+  if (missing >= 0) { notify('第 ' + (missing + 1) + ' 張還沒選店家。'); return; }
   let social = state.social;
   try {
     for (const d of drafts) {
@@ -388,17 +327,13 @@ function publishDrafts() {
     }
   } catch (err) { notify(err.message); return; }
   const count = drafts.length;
-  const shared = drafts.filter(d => d.audience === 'friends').length;
   const growth = social.photos.slice(0, count).map(p => p.growth).find(g => g?.xp);
-  const outcome = [shared ? `已與好友分享 ${shared} 張` : '', shared < count ? `已儲存 ${count - shared} 張私人紀錄` : ''].filter(Boolean).join('，');
-  if (!save({ ...state, social }, outcome + (growth ? '，糰子 +' + growth.xp + ' XP' : '') + '。')) return;
+  if (!save({ ...state, social }, '已發布 ' + count + ' 張照片' + (growth ? '，糰子 +' + growth.xp + ' XP' : '') + '。')) return;
   drafts = [];
-  recordMessage = '';
   page = 'activity';
-  previewPhoto = '';
   navigate();
   if (growth) {
-    view.querySelector('.preview-content')?.insertAdjacentHTML('beforebegin', growthReceipt(growth));
+    view.querySelector('.record-cta')?.insertAdjacentHTML('beforebegin', growthReceipt(growth));
     view.querySelector('.growth-receipt')?.focus({ preventScroll: true });
   }
 }
@@ -414,8 +349,7 @@ async function exportPhoto(id) {
   const canvas = document.createElement('canvas');
   canvas.width = 1080; canvas.height = 810;
   const ctx = canvas.getContext('2d');
-  const image = photoSource(p.src);
-  if (image) ctx.drawImage(await loadImage(image), 0, 0, 1080, 810);
+  if (p.src.startsWith('data:')) ctx.drawImage(await loadImage(p.src), 0, 0, 1080, 810);
   else {
     const art = restaurants.get(p.src.slice(4)) ?? place;
     const gradient = ctx.createLinearGradient(0, 0, 1080, 810);
@@ -566,13 +500,7 @@ document.addEventListener('input', event => {
     if (field === 'petScale') {
       d.pet.scale = Number(event.target.value) / 100;
       event.target.closest('[data-draft]').querySelector('[data-pet-handle]')?.style.setProperty('--s', d.pet.scale);
-    } else {
-      d[field] = event.target.value;
-      if (field === 'takenAt') {
-        event.target.removeAttribute('aria-invalid');
-        refreshRecordFooter();
-      }
-    }
+    } else d[field] = event.target.value;
     return;
   }
   if (event.target.id === 'map-query') {
@@ -597,8 +525,6 @@ document.addEventListener('input', event => {
 document.addEventListener('change', event => {
   if (event.target.id === 'demo-actor') {
     drafts = [];
-    importingDrafts = null;
-    recordMessage = '';
     applySocial({ type: 'actor', id: event.target.value });
     return;
   }
@@ -613,16 +539,13 @@ document.addEventListener('change', event => {
     if (!d) return;
     if (withId) d.with = event.target.checked ? [...d.with, withId] : d.with.filter(id => id !== withId);
     else if (field === 'place') d.place = event.target.value;
-    else if (field === 'audience') {
-      d.audience = event.target.value;
-      refreshRecordFooter();
-    }
+    else if (field === 'audience') d.audience = event.target.value;
     else if (field === 'petOn') d.petOn = event.target.checked;
     else return;
     if (field === 'place' || field === 'petOn') {
       const index = drafts.indexOf(d);
       render();
-      focusDraftField(index, field);
+      view.querySelector('[data-draft="' + index + '"] [data-draft-field="' + field + '"]')?.focus();
     }
     return;
   }
@@ -632,12 +555,6 @@ document.addEventListener('change', event => {
   render();
   document.querySelector('[data-filter="' + key + '"]').focus();
 });
-
-document.addEventListener('toggle', event => {
-  if (!event.target.isConnected || !event.target.matches?.('[data-draft-extras]')) return;
-  const draft = draftAt(event.target);
-  if (draft) draft.extrasOpen = event.target.open;
-}, true);
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
@@ -733,17 +650,16 @@ document.addEventListener('click', event => {
   const data = button.dataset;
   if (data.dismissGrowth !== undefined) {
     button.closest('.growth-receipt').remove();
-  } else if (previewUi && data.uiPhoto !== undefined) {
-    previewPhoto = data.uiPhoto;
-    navigate();
-  } else if (data.draftRemove !== undefined) {
-    const index = Number(data.draftRemove);
-    drafts.splice(index, 1);
+  } else if (data.draftPlace) {
+    const d = draftAt(button);
+    d.place = d.place === data.draftPlace ? '' : data.draftPlace;
+    const index = drafts.indexOf(d);
     render();
-    if (drafts.length) focusDraftField(Math.min(index, drafts.length - 1), 'place');
-    else view.querySelector('#photo-input')?.focus();
+    view.querySelector('[data-draft="' + index + '"] [data-draft-place="' + data.draftPlace + '"]')?.focus();
+  } else if (data.draftRemove !== undefined) {
+    drafts.splice(Number(data.draftRemove), 1);
+    render();
   } else if (data.recordSample !== undefined) {
-    if (importingDrafts === drafts) return;
     if (drafts.length > 4) notify('一次最多 6 張，先發布或移除幾張。');
     else addSamples();
   } else if (data.recordPublish !== undefined) {
@@ -766,8 +682,7 @@ document.addEventListener('click', event => {
   } else if (data.reset !== undefined) {
     if (!window.confirm('還原全部展示資料？將重設照片、評價、收藏、好友、群組、聚餐、貼文與寵物。原版紀錄不受影響。')) return;
     if (!save({ ...createDemoState(), social: freshSocial() }, '展示資料已還原，可以開始下一輪 Demo。')) return;
-    drafts = []; importingDrafts = null; recordMessage = ''; mapScope = 'friends'; mapFocus = '';
-    previewPhoto = '';
+    drafts = []; mapScope = 'friends'; mapFocus = '';
     query = ''; selected = null; page = 'activity'; listMap = false; tourStep = 0;
     Object.keys(filters).forEach(key => { filters[key] = ''; });
     navigate();
@@ -802,10 +717,7 @@ document.addEventListener('click', event => {
     selected = null;
     navigate();
   } else if (data.page || data.back !== undefined) {
-    if (data.page) {
-      page = data.page;
-      previewPhoto = '';
-    }
+    if (data.page) page = data.page;
     if (page === 'tour') tourStep = 0;
     selected = null;
     navigate();
