@@ -1,6 +1,6 @@
-import { findPlaces, googleExploreEmbedUrl, mapSearchLinks } from './maps.mjs';
-import { groupMeals, localDate, mealDateFromPhotos, mealPhotoLimit, monthDates, sampleMeals, shiftDay } from './journal-data.mjs';
-import { mealCard, preparePhoto, sharePhoto } from './journal-media.mjs';
+import { findPlaces, googleExploreEmbedUrl, mapSearchLinks, suggestPlaces } from './maps.mjs?v=record-2';
+import { groupMeals, localDate, mealDateFromPhotos, mealPhotoLimit, monthDates, sampleMeals, shiftDay } from './journal-data.mjs?v=record-2';
+import { mealCard, preparePhoto, sharePhoto } from './journal-media.mjs?v=record-2';
 import { qrcode } from './vendor/qrcode.mjs';
 
 const view = document.querySelector('#view');
@@ -24,6 +24,8 @@ let found;
 let saving = false;
 let updating = 0;
 let authenticating = 0;
+let suggestionTimer;
+let suggesting = 0;
 let draft = {};
 let month = localDate().slice(0, 7);
 const url = new URL(location.href);
@@ -159,47 +161,45 @@ function photoStrip() {
 }
 
 function dateHint() {
-  if (draft.dateEdited || !draft.photos?.length) return '';
-  if (draft.dateReason === 'mixed') return '餐照拍攝日期不同，請選用餐日期。';
-  if (draft.dateReason === 'missing') return '找不到可用的拍攝日期，請選用餐日期。';
-  return '已帶入拍攝日期，可自行修改。';
+  const date = mealDateFromPhotos(draft.photos);
+  if (!date) return '';
+  const time = date.day.replaceAll('-', '/') + ' ' + date.time.slice(0, 5);
+  const source = { photo: '首圖拍攝時間', file: '首圖檔案時間', added: '加入首圖的時間' }[date.source];
+  return `${source} · ${time}`;
 }
 
 function selectedPlace() {
   const place = draft.place;
   return place ? `<div class="chosen-place">
-    <div><strong>${escape(place.displayName)}</strong><small>${escape(place.formattedAddress)}</small></div>
+    <strong>${escape(place.displayName)}</strong>
     <button type="button" data-clear-place aria-label="清除連結店家">×</button>
     <span class="map-attribution" translate="no">Google Maps</span>
   </div>` : '';
 }
 
 function recordPage() {
+  const count = draft.photos?.length || 0;
+  const time = dateHint();
   return title('記錄一餐') + `<form class="fields" data-record ${saving ? 'inert' : ''}>
     <section class="photo-picker" aria-label="餐照">
-      <header><strong>餐照</strong><small data-photo-count>${draft.photos?.length || 0} / ${mealPhotoLimit}</small></header>
       <div class="photo-strip" data-preview>${photoStrip()}</div>
       <div class="photo-inputs">
         <input type="file" accept="image/*" name="photo" multiple hidden>
         <input type="file" accept="image/*" name="camera" capture="environment" hidden>
         <button type="button" data-select-photo="photo" ${draft.reading ? 'disabled' : ''}>從相簿選</button>
         <button type="button" data-select-photo="camera" aria-label="拍照" ${draft.reading ? 'disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h4l2-3h6l2 3h4v14H3z"/><circle cx="12" cy="13" r="4"/></svg></button>
+        <small data-photo-count ${count ? '' : 'hidden'}>${count} / ${mealPhotoLimit}</small>
       </div>
+      <small id="date-hint" aria-live="polite" ${time ? '' : 'hidden'}>${escape(time)}</small>
     </section>
-    <div class="place-entry">
-      <label>用餐店家<input name="restaurant" maxlength="100" required placeholder="輸入店名" value="${escape(draft.restaurant)}"></label>
-      ${config.mapsKey ? '<button type="button" data-place-search>找店</button>' : ''}
+    <div class="restaurant-field">
+      <label>用餐店家<input name="restaurant" maxlength="100" autocomplete="off" required placeholder="輸入店名" value="${escape(draft.restaurant)}"></label>
+      <div data-restaurant-suggestions hidden></div>
+      <span class="visually-hidden" data-restaurant-status role="status"></span>
+      <div data-chosen-place ${draft.place ? '' : 'hidden'}>${selectedPlace()}</div>
     </div>
-    <div data-chosen-place ${draft.place ? '' : 'hidden'}>${selectedPlace()}</div>
-    <div data-place-results hidden></div>
-    <label>心得（選填）<textarea name="caption" rows="3" maxlength="280" placeholder="這餐吃起來怎樣？當時是什麼心情？">${escape(draft.caption)}</textarea></label>
-    <div class="meal-date">
-      <label>用餐日期<input type="date" name="eaten_on" max="${localDate()}" required aria-describedby="date-hint" value="${escape(draft.eaten_on)}"></label>
-      <label>時間（選填）<input type="time" name="eaten_time" value="${escape(draft.eaten_time)}"></label>
-    </div>
-    <small id="date-hint" aria-live="polite" ${dateHint() ? '' : 'hidden'}>${dateHint()}</small>
-    <div class="controls"><button type="submit" class="primary" ${diner && !draft.reading ? '' : 'disabled'}>發布給好友</button>
-    ${diner ? '' : '<small>登入後可發布餐照。</small>'}</div></form>`;
+    <label class="record-notes">心得<textarea name="caption" rows="3" maxlength="280" placeholder="這餐怎麼樣？">${escape(draft.caption)}</textarea></label>
+    <div class="controls"><button type="submit" class="primary" ${diner && !draft.reading ? '' : 'disabled'}>${diner ? '發布給好友' : '登入後發布'}</button></div></form>`;
 }
 
 function explorePage() {
@@ -308,21 +308,16 @@ async function initialize(nextSession) {
 function paintRecordPhotos(scroll = false) {
   const form = view.querySelector('[data-record]');
   const photos = draft.photos || [];
-  if (!draft.dateEdited) {
-    const { day, time, reason } = mealDateFromPhotos(photos);
-    draft.eaten_on = day;
-    if (!draft.timeEdited) draft.eaten_time = time;
-    draft.dateReason = reason;
-  }
   if (!form) return;
   const strip = form.querySelector('[data-preview]');
   strip.innerHTML = photoStrip();
   if (scroll) strip.scrollLeft = strip.scrollWidth;
-  form.querySelector('[data-photo-count]').textContent = `${photos.length} / ${mealPhotoLimit}`;
-  form.querySelector('#date-hint').textContent = dateHint();
-  form.querySelector('#date-hint').hidden = !dateHint();
-  form.elements.eaten_on.value = draft.eaten_on || '';
-  form.elements.eaten_time.value = draft.eaten_time || '';
+  const count = form.querySelector('[data-photo-count]');
+  count.textContent = `${photos.length} / ${mealPhotoLimit}`;
+  count.hidden = photos.length === 0;
+  const hint = dateHint();
+  form.querySelector('#date-hint').textContent = hint;
+  form.querySelector('#date-hint').hidden = !hint;
   for (const button of form.querySelectorAll('[data-select-photo], [data-drop-photo]')) button.disabled = !!draft.reading || saving;
   form.querySelector('[type="submit"]').disabled = !diner || !!draft.reading || saving;
 }
@@ -456,12 +451,62 @@ function paintChosenPlace(form) {
   box.innerHTML = selectedPlace();
 }
 
+function clearRestaurantSuggestions(form) {
+  clearTimeout(suggestionTimer);
+  ++suggesting;
+  const results = form.querySelector('[data-restaurant-suggestions]');
+  results.hidden = true;
+  results.replaceChildren();
+  results.onclick = null;
+  form.querySelector('[data-restaurant-status]').textContent = '';
+}
+
+function queueRestaurantSuggestions(input, composing = false) {
+  const form = input.form;
+  clearRestaurantSuggestions(form);
+  const query = input.value.trim();
+  if (composing || !config.mapsKey || query.length < 2) return;
+  const request = suggesting;
+  const active = () => request === suggesting && input.isConnected && !saving && query === input.value.trim();
+  suggestionTimer = setTimeout(async () => {
+    if (!active()) return;
+    const results = form.querySelector('[data-restaurant-suggestions]');
+    const status = form.querySelector('[data-restaurant-status]');
+    try {
+      const places = await suggestPlaces(query, config.mapsKey);
+      if (!active()) return;
+      if (!places.length) {
+        results.innerHTML = '<p role="status">沒有符合的店家，可以直接用手填名稱。</p>';
+      } else {
+        results.innerHTML = `<div class="place-results" role="group" aria-label="店家建議">
+          ${places.map((place, index) => `<button type="button" data-choose-place="${index}"><strong>${escape(place.displayName)}</strong><small>${escape(place.formattedAddress)}</small></button>`).join('')}
+          <span class="map-attribution" translate="no">Google Maps</span>
+        </div>`;
+        results.onclick = event => {
+          const choice = event.target.closest('[data-choose-place]');
+          if (!choice || !active()) return;
+          draft.place = places[Number(choice.dataset.choosePlace)];
+          clearRestaurantSuggestions(form);
+          paintChosenPlace(form);
+          status.textContent = `已連結 ${draft.place.displayName}`;
+          input.focus();
+        };
+      }
+      results.hidden = false;
+      if (places.length) status.textContent = `有 ${places.length} 間店家建議。`;
+    } catch {
+      if (!active()) return;
+      results.innerHTML = '<p role="status">暫時無法取得店家建議，仍可手填店名。</p>';
+      results.hidden = false;
+    }
+  }, 350);
+}
+
 async function placeSearch(form, value, button) {
   const query = value.trim();
   if (!query) return notice('先輸入店名或地址。', true);
-  const record = form.matches('[data-record]');
   const results = form.querySelector('[data-place-results]');
-  const input = form.elements[record ? 'restaurant' : 'query'];
+  const input = form.elements.query;
   const active = () => form.isConnected && input.value.trim() === query && results.dataset.query === query;
   results.dataset.query = query;
   results.hidden = false;
@@ -471,21 +516,9 @@ async function placeSearch(form, value, button) {
     const places = (await findPlaces(query, config.mapsKey)).filter(place => place.id && place.displayName);
     if (!active()) return;
     results.innerHTML = `<div class="place-results">
-      ${places.map((place, index) => {
-        const item = `<strong>${escape(place.displayName)}</strong><small>${escape(place.formattedAddress)}</small>`;
-        return record ? `<button type="button" data-choose-place="${index}">${item}</button>`
-          : `<a target="_blank" rel="noopener noreferrer" href="${escape(mapSearchLinks(query, place.id).google)}">${item}</a>`;
-      }).join('') || '<p>找不到符合的店家。試試店名加分店或地區。</p>'}
+      ${places.map(place => `<a target="_blank" rel="noopener noreferrer" href="${escape(mapSearchLinks(query, place.id).google)}"><strong>${escape(place.displayName)}</strong><small>${escape(place.formattedAddress)}</small></a>`).join('') || '<p>找不到符合的店家。試試店名加分店或地區。</p>'}
       <span class="map-attribution" translate="no">Google Maps</span>
     </div>`;
-    results.onclick = event => {
-      const choice = event.target.closest('[data-choose-place]');
-      if (!record || !choice || !active() || saving) return;
-      draft.place = places[Number(choice.dataset.choosePlace)];
-      paintChosenPlace(form);
-      results.hidden = true;
-      form.elements.restaurant.focus();
-    };
   } catch {
     if (!active()) return;
     results.innerHTML = `<p role="status">目前無法在站內找店。 <a target="_blank" rel="noopener noreferrer" href="${escape(mapSearchLinks(query).google)}">改用 Google 地圖 ↗</a></p>`;
@@ -566,8 +599,6 @@ document.addEventListener('click', event => {
   } else if (data.savePhoto !== undefined) {
     const file = draft.photos[Number(data.savePhoto)]?.original;
     if (file) void action(() => sharePhoto(file), '原圖無法儲存，請再試一次。');
-  } else if (data.placeSearch !== undefined) {
-    void placeSearch(button.form, button.form.elements.restaurant.value, button);
   } else if (data.clearPlace !== undefined) {
     const form = button.form;
     draft.place = undefined;
@@ -663,22 +694,53 @@ view.addEventListener('input', event => {
   const form = input.form;
   if (form?.matches('[data-record]') && input.type !== 'file') {
     draft[input.name] = input.value;
-    if (input.name === 'eaten_on') {
-      draft.dateEdited = true;
-      form.querySelector('#date-hint').hidden = true;
-    }
-    if (input.name === 'eaten_time') draft.timeEdited = true;
-    if (input.name === 'restaurant' && draft.place) {
-      draft.place = undefined;
-      paintChosenPlace(form);
+    if (input.name === 'restaurant') {
+      if (draft.place) {
+        draft.place = undefined;
+        paintChosenPlace(form);
+      }
+      queueRestaurantSuggestions(input, event.isComposing);
     }
   }
-  if (['restaurant', 'query'].includes(input.name)) {
+  if (input.name === 'query') {
     const results = form.querySelector('[data-place-results]');
     results.hidden = true;
     delete results.dataset.query;
   }
   if (input.form?.matches('[data-find]')) searchCode = input.value;
+});
+
+view.addEventListener('compositionstart', event => {
+  if (event.target.name === 'restaurant') clearRestaurantSuggestions(event.target.form);
+});
+
+view.addEventListener('compositionend', event => {
+  if (event.target.name === 'restaurant') queueRestaurantSuggestions(event.target);
+});
+
+view.addEventListener('focusout', event => {
+  const field = event.target.closest('.restaurant-field');
+  if (field && event.relatedTarget && !field.contains(event.relatedTarget)) {
+    clearRestaurantSuggestions(field.closest('form'));
+  }
+});
+
+view.addEventListener('keydown', event => {
+  const target = event.target;
+  if (event.isComposing || (target.name !== 'restaurant' && !target.matches('[data-choose-place]'))) return;
+  const form = target.form;
+  const input = form.elements.restaurant;
+  if (event.key === 'Escape') {
+    clearRestaurantSuggestions(form);
+    input.focus();
+  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    const options = [...form.querySelectorAll('[data-choose-place]')];
+    if (!options.length) return;
+    const current = options.indexOf(target);
+    const next = event.key === 'ArrowDown' ? options[current + 1] : (current < 0 ? options.at(-1) : options[current - 1] || input);
+    event.preventDefault();
+    next?.focus();
+  }
 });
 
 view.addEventListener('change', async event => {
@@ -735,10 +797,11 @@ view.addEventListener('submit', async event => {
       const submitted = draft;
       const owner = diner.id;
       const restaurant = values.get('restaurant').trim();
-      if (!draft.photos?.length || !restaurant) return notice('請先加入餐照並輸入店名。', true);
-      const eaten_on = values.get('eaten_on');
+      const date = mealDateFromPhotos(draft.photos);
+      if (!date || !restaurant) return notice('請先加入餐照並輸入店名。', true);
+      const eaten_on = date.day;
       const [photo, ...extra_photos] = draft.photos.map(item => item.src);
-      const nextMeal = { id: draft.id ??= crypto.randomUUID(), eaten_on, eaten_time: values.get('eaten_time') || null,
+      const nextMeal = { id: draft.id ??= crypto.randomUUID(), eaten_on, eaten_time: date.time,
         restaurant, place_id: draft.place?.id || null, caption: values.get('caption').trim(), photo, extra_photos };
       const result = await client.from('meals').insert(nextMeal);
       if (submitted !== draft) return;

@@ -33,18 +33,17 @@ export function groupMeals(meals, key, limit = Infinity) {
 
 export const mealPhotoLimit = 6;
 
-export function mealDateFromPhotos(photos, today = localDate()) {
-  const times = photos.map(photo => photo.takenAt).filter(stamp => {
-    if (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/.test(stamp)) return false;
-    const day = stamp.slice(0, 10);
-    return localDate(new Date(day + 'T12:00:00')) === day;
-  }).sort();
-  const days = new Set(times.map(stamp => stamp.slice(0, 10)));
-  const day = times[0]?.slice(0, 10);
-  if (days.size !== 1 || day > today) {
-    return { day: '', time: '', reason: days.size > 1 ? 'mixed' : 'missing' };
+export function mealDateFromPhotos(photos, now = new Date()) {
+  const cover = photos?.[0];
+  if (!cover) return null;
+  const stamp = /^(\d{4}-\d{2}-\d{2})T((?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?)$/.exec(cover.takenAt);
+  if (stamp && localDate(new Date(stamp[1] + 'T12:00:00')) === stamp[1]) {
+    return { day: stamp[1], time: stamp[2], source: 'photo' };
   }
-  return { day, time: times[0].slice(11, 16), reason: '' };
+  const modified = new Date(cover.modifiedAt);
+  const hasFileTime = cover.modifiedAt > 0 && !Number.isNaN(modified.getTime());
+  const date = hasFileTime ? modified : new Date(cover.addedAt ?? now);
+  return { day: localDate(date), time: date.toTimeString().slice(0, 8), source: hasFileTime ? 'file' : 'added' };
 }
 
 const examples = [

@@ -1,10 +1,7 @@
-import { localDate } from './journal-data.mjs';
-
 export async function preparePhoto(file, camera) {
   if (file.size > 30 * 1024 * 1024) throw Error('請選擇小於 30 MB 的照片。');
+  const addedAt = Date.now();
   const takenAt = await photoCaptureTime(file);
-  const now = new Date();
-  const captured = camera ? localDate(now) + 'T' + now.toTimeString().slice(0, 5) : '';
   const url = URL.createObjectURL(file);
   const image = new Image();
   image.src = url;
@@ -21,7 +18,7 @@ export async function preparePhoto(file, camera) {
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       const src = canvas.toDataURL('image/jpeg', .82);
       if (src.length <= 350000 && src.startsWith('data:image/jpeg;base64,')) {
-        return { src, takenAt: takenAt || captured, original: camera ? file : undefined };
+        return { src, takenAt, modifiedAt: file.lastModified, addedAt, original: camera ? file : undefined };
       }
     }
     throw Error('這張照片太大，請選另一張。');
@@ -33,9 +30,12 @@ export async function preparePhoto(file, camera) {
 export async function photoCaptureTime(file) {
   try {
     await import('./vendor/exif-reader.js');
-    const tags = await globalThis.ExifReader.load(file, { expanded: true, includeTags: { exif: ['DateTimeOriginal'] } });
-    const stamp = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/.exec(tags.exif?.DateTimeOriginal?.description);
-    return stamp ? `${stamp[1]}-${stamp[2]}-${stamp[3]}T${stamp[4]}:${stamp[5]}` : '';
+    const { exif } = await globalThis.ExifReader.load(file, {
+      expanded: true, includeTags: { exif: ['DateTimeOriginal', 'DateTimeDigitized'] },
+    });
+    const value = exif?.DateTimeOriginal?.description || exif?.DateTimeDigitized?.description;
+    const stamp = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}:\d{2}:\d{2})/.exec(value);
+    return stamp ? `${stamp[1]}-${stamp[2]}-${stamp[3]}T${stamp[4]}` : '';
   } catch {
     return '';
   }

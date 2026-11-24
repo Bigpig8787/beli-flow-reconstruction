@@ -31,10 +31,19 @@ test('an earlier meal published later stays in its place and old records keep th
   assert.deepEqual(feed.get(meal.owner).map(item => item.id), ['dinner', 'breakfast', 'legacy-new', 'legacy-old', 'yesterday']);
 });
 
-test('same-day photos prefill meal date and time; missing or conflicting dates require a selection', () => {
-  const infer = (...values) => mealDateFromPhotos(values.map(takenAt => ({ takenAt })), '2026-11-24');
-  assert.deepEqual(infer('2026-11-22T18:05', undefined, '2026-11-22T18:02'), { day: '2026-11-22', time: '18:02', reason: '' });
-  assert.deepEqual(infer('2026-11-22T23:00', '2026-11-23T00:15'), { day: '', time: '', reason: 'mixed' });
-  assert.deepEqual(infer(undefined, '2026-02-30T20:13'), { day: '', time: '', reason: 'missing' });
-  assert.equal(infer('2026-11-25T07:00').reason, 'missing');
+test('the cover photo sets the meal date and keeps capture seconds even if the other photos differ', () => {
+  const photos = [{ takenAt: '2026-11-22T23:00:42' }, { takenAt: '2026-11-23T00:15:03' }];
+  assert.deepEqual(mealDateFromPhotos(photos), { day: '2026-11-22', time: '23:00:42', source: 'photo' });
+  assert.deepEqual(mealDateFromPhotos(photos.slice(1)), { day: '2026-11-23', time: '00:15:03', source: 'photo' });
+  assert.equal(mealDateFromPhotos([{ takenAt: '2027-01-02T06:00:12' }], new Date(2026, 10, 24)).day, '2027-01-02');
+  assert.equal(mealDateFromPhotos([]), null);
+});
+
+test('the record falls back to the cover file time or the time it was added', () => {
+  const modifiedAt = new Date(2026, 10, 22, 8, 2, 33).getTime();
+  const addedAt = new Date(2026, 10, 24, 13, 0, 7).getTime();
+  assert.deepEqual(mealDateFromPhotos([{ takenAt: '2026-02-30T20:13:07', modifiedAt, addedAt }]),
+    { day: '2026-11-22', time: '08:02:33', source: 'file' });
+  assert.deepEqual(mealDateFromPhotos([{ takenAt: '', modifiedAt: 0, addedAt }]),
+    { day: '2026-11-24', time: '13:00:07', source: 'added' });
 });

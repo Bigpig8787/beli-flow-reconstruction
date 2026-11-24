@@ -144,12 +144,16 @@ textarea { resize: vertical; }
 .person strong { overflow-wrap: anywhere; }
 .qr { display: block; margin: 8px 0; }
 .qr img { display: block; width: 148px; height: 148px; image-rendering: pixelated; }
-.photo-picker { padding: 11px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface); }
-.photo-picker header, .photo-inputs { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.photo-strip { grid-auto-columns: minmax(99px, 27%); gap: 7px; padding-block: 8px; }
-.photo-strip:empty::before, .photo-strip:empty::after { content: ''; aspect-ratio: 1; border-radius: 8px; background: var(--accent-pale); border: 1px dashed var(--control-border); }
-.photo-inputs button:first-of-type { flex: 1; text-align: left; color: var(--accent); }
-.photo-inputs button:last-of-type { display: grid; place-items: center; min-width: 48px; }
+[data-record].fields { gap: 20px; }
+.photo-picker { padding-bottom: 9px; border-bottom: 1px solid var(--border); }
+.photo-inputs { display: flex; align-items: center; gap: 8px; }
+.photo-strip { grid-auto-columns: clamp(92px, 30%, 164px); gap: 8px; padding-block: 4px; }
+.photo-strip:empty { display: none; }
+.photo-inputs button { border: 0; background: transparent; color: var(--accent); }
+.photo-inputs button:hover { background: var(--accent-pale); }
+.photo-inputs button:first-of-type { padding-inline: 2px 8px; font-weight: 650; }
+.photo-inputs button:last-of-type { display: grid; place-items: center; min-width: 44px; padding: 0; }
+.photo-inputs small { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .photo-inputs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
 .draft-tile { position: relative; display: flex; flex-direction: column; min-width: 0; margin: 0; scroll-snap-align: start; }
 .draft-tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--accent-pale); }
@@ -157,17 +161,29 @@ textarea { resize: vertical; }
 .drop-photo { position: absolute; top: 3px; right: 3px; min-width: 38px; min-height: 38px; padding: 0; border-radius: 50%; color: #fff; background: #10191ddd; border: 0; font-size: 24px; line-height: 1; }
 .drop-photo:hover { background: #10191d; }
 .save-photo { margin-top: 4px; padding-inline: 3px; font-size: 12px; }
-.meal-date, .place-entry { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: end; gap: 8px; }
-.place-entry { grid-template-columns: minmax(0, 1fr) auto; }
+.restaurant-field { display: grid; gap: 4px; }
+.restaurant-field input, .record-notes textarea { padding-inline: 0; border: 0; border-radius: 0; }
+.restaurant-field input { border-bottom: 1px solid var(--control-border); }
+.record-notes textarea { min-height: 88px; padding-block: 5px; }
+.restaurant-field input:focus-visible, .record-notes textarea:focus-visible { outline: 2px solid transparent; box-shadow: 0 2px 0 var(--accent); }
+[data-restaurant-suggestions] p { margin: 2px 0; color: var(--quiet); font-size: 13px; }
 .place-results, .chosen-place { padding: 6px 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.restaurant-field .place-results, .restaurant-field .chosen-place { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.restaurant-field .place-results button { padding-inline: 0; border-radius: 0; }
 .place-results :is(button, a) { display: block; width: 100%; text-align: left; padding: 7px 4px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--ink); text-decoration: none; }
 .place-results :is(button, a):hover { background: var(--accent-pale); }
 .place-results small, .chosen-place small { display: block; margin-top: 2px; }
 .map-attribution { display: block; width: max-content; white-space: nowrap; margin: 5px 0 1px auto; font: 400 12px/1.4 Roboto, sans-serif; color: #5e5e5e; }
 [data-theme="dark"] .map-attribution { color: #fff; }
-.chosen-place { display: grid; grid-template-columns: 1fr auto; align-items: center; padding-left: 10px; gap: 4px; }
-.chosen-place .map-attribution { grid-column: 1 / -1; }
-#date-hint { min-height: 1.5em; }
+.chosen-place { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 6px; }
+.chosen-place strong { overflow-wrap: anywhere; }
+.chosen-place button { border: 0; padding-inline: 8px; order: 1; }
+.chosen-place .map-attribution { margin: 0; }
+#date-hint { display: block; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+
+@media (forced-colors: active) {
+  .restaurant-field input:focus-visible, .record-notes textarea:focus-visible { outline-color: Highlight; }
+}
 
 .month { margin: 12px 0; }
 .month-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }

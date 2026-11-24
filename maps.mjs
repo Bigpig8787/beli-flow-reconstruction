@@ -65,3 +65,13 @@ export async function findPlaces(query, key) {
   });
   return places;
 }
+
+export async function suggestPlaces(input, key) {
+  const { AutocompleteSuggestion } = await loadPlaces(key);
+  const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input, language: 'zh-TW', region: 'tw' });
+  return suggestions.flatMap(({ placePrediction: place }) => place?.placeId ? [{
+    id: place.placeId,
+    displayName: (place.mainText || place.text).toString(),
+    formattedAddress: place.secondaryText?.toString() || '',
+  }] : []);
+}
