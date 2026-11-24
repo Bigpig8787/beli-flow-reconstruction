@@ -8,6 +8,11 @@ const status = document.querySelector('#status');
 const login = document.querySelector('#login');
 const detail = document.querySelector('#meal-detail');
 const detailBody = document.querySelector('#detail-body');
+const photoSheet = document.querySelector('#photo-sheet');
+const pickerPhotos = photoSheet.querySelector('[data-picker-photos]');
+const pickerEmpty = photoSheet.querySelector('.photo-sheet-empty');
+const pickerNext = photoSheet.querySelector('[data-finish-photos]');
+const pickerStatus = photoSheet.querySelector('[data-picker-status]');
 const pages = ['feed', 'friends', 'record', 'explore', 'profile'];
 const friendCode = /^[a-f0-9]{12}$/;
 const coverFields = 'id,owner,restaurant,caption,eaten_on,eaten_time,created_at,photo,place_id';
@@ -35,6 +40,8 @@ if (entry) sessionStorage.setItem('fomery-invite', entry);
 const base = new URL('./', url);
 let searchCode = entry;
 let page = entry ? 'friends' : 'feed';
+let recordReturn = page;
+let editingPhotos = false;
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -150,14 +157,23 @@ function friendsPage() {
     + '<div class="panel"><h3>我的好友</h3>' + (accepted.length ? accepted.map(person).join('') : '<p class="muted">還沒有好友。</p>') + '</div>';
 }
 
-function photoStrip() {
+function pickerTiles() {
   const photos = draft.photos || [];
   return photos.map((item, index) => `<figure class="draft-tile">
-    <img src="${item.src}" alt="第 ${index + 1} 張餐照">
+    <button type="button" class="cover-choice" data-pick-cover="${index}" aria-label="第 ${index + 1} 張照片設為首圖" aria-pressed="${index === 0}"><img src="${item.src}" alt=""></button>
     <button type="button" class="drop-photo" data-drop-photo="${index}" aria-label="移除第 ${index + 1} 張照片">×</button>
     ${index === 0 ? '<figcaption>首圖</figcaption>' : ''}
     ${item.original ? `<button type="button" class="save-photo" data-save-photo="${index}">儲存原圖</button>` : ''}
   </figure>`).join('');
+}
+
+function recordPhotoSummary() {
+  const photos = draft.photos || [];
+  const hint = dateHint();
+  return `<button type="button" class="record-photo-summary" data-edit-photos>
+    ${photos.length ? `<span class="record-photo-thumbs">${photos.slice(0, 3).map(item => `<img src="${item.src}" alt="">`).join('')}</span>` : ''}
+    <span><strong>${photos.length ? '編輯照片' : '新增照片'}</strong>${hint ? `<small>${escape(hint)}</small>` : ''}</span>
+  </button>`;
 }
 
 function dateHint() {
@@ -178,20 +194,8 @@ function selectedPlace() {
 }
 
 function recordPage() {
-  const count = draft.photos?.length || 0;
-  const time = dateHint();
-  return title('記錄一餐') + `<form class="fields" data-record ${saving ? 'inert' : ''}>
-    <section class="photo-picker" aria-label="餐照">
-      <div class="photo-strip" data-preview>${photoStrip()}</div>
-      <div class="photo-inputs">
-        <input type="file" accept="image/*" name="photo" multiple hidden>
-        <input type="file" accept="image/*" name="camera" capture="environment" hidden>
-        <button type="button" data-select-photo="photo" ${draft.reading ? 'disabled' : ''}>從相簿選</button>
-        <button type="button" data-select-photo="camera" aria-label="拍照" ${draft.reading ? 'disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h4l2-3h6l2 3h4v14H3z"/><circle cx="12" cy="13" r="4"/></svg></button>
-        <small data-photo-count ${count ? '' : 'hidden'}>${count} / ${mealPhotoLimit}</small>
-      </div>
-      <small id="date-hint" aria-live="polite" ${time ? '' : 'hidden'}>${escape(time)}</small>
-    </section>
+  return title('記錄一餐', '<button type="button" data-close-record aria-label="關閉記錄">×</button>') + `<form class="fields" data-record ${saving ? 'inert' : ''}>
+    <div data-record-photos>${recordPhotoSummary()}</div>
     <div class="restaurant-field">
       <label>用餐店家<input name="restaurant" maxlength="100" autocomplete="off" required placeholder="輸入店名" value="${escape(draft.restaurant)}"></label>
       <div data-restaurant-suggestions hidden></div>
@@ -199,7 +203,7 @@ function recordPage() {
       <div data-chosen-place ${draft.place ? '' : 'hidden'}>${selectedPlace()}</div>
     </div>
     <label class="record-notes">心得<textarea name="caption" rows="3" maxlength="280" placeholder="這餐怎麼樣？">${escape(draft.caption)}</textarea></label>
-    <div class="controls"><button type="submit" class="primary" ${diner && !draft.reading ? '' : 'disabled'}>${diner ? '發布給好友' : '登入後發布'}</button></div></form>`;
+    <div class="controls"><button type="submit" class="primary" ${diner && draft.photos?.length && !draft.reading ? '' : 'disabled'}>${diner ? '發布給好友' : '登入後發布'}</button></div></form>`;
 }
 
 function explorePage() {
@@ -292,6 +296,7 @@ async function initialize(nextSession) {
   personal = [];
   found = undefined;
   draft = {};
+  if (photoSheet.open) photoSheet.close();
   if (detail.open) detail.close();
   detailBody.replaceChildren();
   if (session) {
@@ -305,21 +310,87 @@ async function initialize(nextSession) {
   render();
 }
 
-function paintRecordPhotos(scroll = false) {
-  const form = view.querySelector('[data-record]');
+function paintRecordPhotos(revealNewest = false) {
   const photos = draft.photos || [];
-  if (!form) return;
-  const strip = form.querySelector('[data-preview]');
-  strip.innerHTML = photoStrip();
-  if (scroll) strip.scrollLeft = strip.scrollWidth;
-  const count = form.querySelector('[data-photo-count]');
+  pickerPhotos.innerHTML = pickerTiles();
+  pickerPhotos.hidden = photos.length === 0;
+  pickerEmpty.hidden = photos.length > 0;
+  if (revealNewest) pickerPhotos.scrollLeft = pickerPhotos.scrollWidth;
+  const count = photoSheet.querySelector('[data-photo-count]');
   count.textContent = `${photos.length} / ${mealPhotoLimit}`;
   count.hidden = photos.length === 0;
-  const hint = dateHint();
-  form.querySelector('#date-hint').textContent = hint;
-  form.querySelector('#date-hint').hidden = !hint;
-  for (const button of form.querySelectorAll('[data-select-photo], [data-drop-photo]')) button.disabled = !!draft.reading || saving;
-  form.querySelector('[type="submit"]').disabled = !diner || !!draft.reading || saving;
+  pickerNext.disabled = !photos.length || !!draft.reading || saving;
+  for (const button of photoSheet.querySelectorAll('[data-select-photo]')) button.disabled = !!draft.reading || photos.length >= mealPhotoLimit;
+  for (const button of photoSheet.querySelectorAll('[data-drop-photo], [data-pick-cover]')) button.disabled = !!draft.reading;
+  const form = view.querySelector('[data-record]');
+  if (!form) return;
+  form.querySelector('[data-record-photos]').innerHTML = recordPhotoSummary();
+  form.querySelector('[type="submit"]').disabled = !diner || !photos.length || !!draft.reading || saving;
+}
+
+function pickerNotice(message = '', error = false) {
+  pickerStatus.textContent = message;
+  pickerStatus.hidden = !message;
+  pickerStatus.classList.toggle('error', error);
+}
+
+function goToPage(next) {
+  page = next;
+  notice();
+  render(true);
+  window.scrollTo(0, 0);
+  void action(async () => { if (await refresh()) render(true); }, '載入失敗，請稍後再試。');
+}
+
+function openPhotoSheet(editing = false) {
+  if (saving || photoSheet.open || !view.querySelector('[data-record]')) return;
+  editingPhotos = editing;
+  pickerNext.textContent = editing ? '完成' : '下一步';
+  pickerNotice(draft.reading ? '照片處理中…' : '');
+  paintRecordPhotos();
+  photoSheet.showModal();
+  photoSheet.scrollTop = 0;
+  photoSheet.querySelector('[data-select-photo="photo"]:enabled')?.focus({ preventScroll: true });
+}
+
+function finishPhotoSheet() {
+  if (!photoSheet.open || pickerNext.disabled) return;
+  const form = view.querySelector('[data-record]');
+  photoSheet.close();
+  if (!form) return;
+  const focus = editingPhotos ? form.querySelector('[data-edit-photos]') : form.elements.restaurant;
+  focus.focus({ preventScroll: true });
+  if (!reducedMotion.matches) form.animate([
+    { opacity: .32, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0)' },
+  ], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
+
+function discardRecord() {
+  if (saving) return false;
+  const hasContent = draft.reading || draft.photos?.length || draft.restaurant?.trim() || draft.caption?.trim();
+  if (hasContent && !confirm('捨棄這餐的草稿？')) return false;
+  draft = {};
+  if (photoSheet.open) photoSheet.close();
+  return true;
+}
+
+function changeCover(index) {
+  const photos = draft.photos;
+  if (!index || !photos?.[index] || draft.reading) return;
+  const start = reducedMotion.matches ? [] : [...pickerPhotos.children].map(tile => tile.getBoundingClientRect().left);
+  photos.unshift(photos.splice(index, 1)[0]);
+  paintRecordPhotos();
+  pickerPhotos.scrollLeft = 0;
+  for (const [newIndex, tile] of [...pickerPhotos.children].entries()) {
+    if (!start.length) break;
+    const oldIndex = newIndex === 0 ? index : newIndex <= index ? newIndex - 1 : newIndex;
+    const shift = start[oldIndex] - tile.getBoundingClientRect().left;
+    if (Math.abs(shift) > 1) tile.animate([
+      { transform: `translateX(${shift}px) scale(.96)` }, { transform: 'translateX(0) scale(1)' },
+    ], { duration: 390, easing: 'cubic-bezier(.18,.88,.22,1)' });
+  }
+  pickerPhotos.querySelector('[data-pick-cover="0"]').focus({ preventScroll: true });
+  pickerNotice();
 }
 
 function galleryImages(meal, photos, offset = 0) {
@@ -552,6 +623,11 @@ detail.addEventListener('close', () => {
   if (!detail.open) detailBody.replaceChildren();
 });
 
+photoSheet.addEventListener('cancel', event => {
+  event.preventDefault();
+  if (discardRecord()) goToPage(recordReturn);
+});
+
 detail.addEventListener('submit', async event => {
   const form = event.target;
   if (!form.matches('[data-comment]')) return;
@@ -577,11 +653,19 @@ document.addEventListener('click', event => {
       option.setAttribute('aria-pressed', String(option.dataset.theme === data.theme));
     }
   } else if (pages.includes(data.page)) {
-    page = data.page;
-    notice();
-    render(true);
-    window.scrollTo(0, 0);
-    void action(async () => { if (await refresh()) render(true); }, '載入失敗，請稍後再試。');
+    if (data.page === 'record') {
+      if (page !== 'record') {
+        recordReturn = page;
+        goToPage('record');
+        openPhotoSheet();
+      } else openPhotoSheet(!!draft.photos?.length);
+    } else if (page !== 'record' || discardRecord()) goToPage(data.page);
+  } else if (data.closeRecord !== undefined) {
+    if (discardRecord()) goToPage(recordReturn);
+  } else if (data.editPhotos !== undefined) {
+    openPhotoSheet(!!draft.photos?.length);
+  } else if (data.finishPhotos !== undefined) {
+    finishPhotoSheet();
   } else if (data.refresh !== undefined) {
     notice();
     void action(async () => { if (await refresh()) render(true); }, '更新失敗，請稍後再試。');
@@ -590,15 +674,18 @@ document.addEventListener('click', event => {
     const step = track.children[1].offsetLeft - track.children[0].offsetLeft;
     track.scrollBy({ left: Number(data.shiftRow) * step, behavior: reducedMotion.matches ? 'instant' : 'smooth' });
   } else if (data.selectPhoto) {
-    if (!draft.reading && !saving) button.form.elements[data.selectPhoto].click();
+    if (!draft.reading && !saving) photoSheet.querySelector(`[name="${data.selectPhoto}"]`)?.click();
+  } else if (data.pickCover !== undefined) {
+    changeCover(Number(data.pickCover));
   } else if (data.dropPhoto !== undefined) {
     if (draft.reading || saving) return;
     draft.photos.splice(Number(data.dropPhoto), 1);
     paintRecordPhotos();
-    view.querySelector('[data-select-photo="photo"]').focus();
+    pickerNotice();
+    photoSheet.querySelector('[data-select-photo="photo"]').focus({ preventScroll: true });
   } else if (data.savePhoto !== undefined) {
     const file = draft.photos[Number(data.savePhoto)]?.original;
-    if (file) void action(() => sharePhoto(file), '原圖無法儲存，請再試一次。');
+    if (file) void sharePhoto(file).catch(() => pickerNotice('原圖無法儲存，請再試一次。', true));
   } else if (data.clearPlace !== undefined) {
     const form = button.form;
     draft.place = undefined;
@@ -743,7 +830,7 @@ view.addEventListener('keydown', event => {
   }
 });
 
-view.addEventListener('change', async event => {
+photoSheet.addEventListener('change', async event => {
   const input = event.target;
   if (input.type !== 'file' || !input.files.length || draft.reading || saving) return;
   const files = [...input.files];
@@ -751,9 +838,10 @@ view.addEventListener('change', async event => {
   const current = draft;
   const photos = draft.photos ||= [];
   const remaining = mealPhotoLimit - photos.length;
-  if (!remaining) return notice(`每餐最多 ${mealPhotoLimit} 張，先移除一張再加。`, true);
+  if (!remaining) return pickerNotice(`每餐最多 ${mealPhotoLimit} 張，先移除一張再加。`, true);
   const errors = [];
   draft.reading = true;
+  pickerNotice('照片處理中…');
   paintRecordPhotos();
   try {
     for (const file of files.slice(0, remaining)) {
@@ -761,7 +849,7 @@ view.addEventListener('change', async event => {
       catch (error) { errors.push(error.message); }
       if (current !== draft) return;
     }
-    if (page === 'record') notice(errors[0] || (files.length > remaining ? `每餐最多 ${mealPhotoLimit} 張，已加入前 ${remaining} 張。` : ''), !!errors.length);
+    if (photoSheet.open) pickerNotice(errors[0] || (files.length > remaining ? `每餐最多 ${mealPhotoLimit} 張，已加入前 ${remaining} 張。` : ''), !!errors.length);
   } finally {
     delete current.reading;
     if (current === draft) paintRecordPhotos(true);
