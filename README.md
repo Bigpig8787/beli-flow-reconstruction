@@ -1,10 +1,12 @@
 # Fomery
 
-**[開啟 Fomery 封測版（Google 登入）](https://an4131754-collab.github.io/fomery-andy-preview/)**
+**[開啟 Fomery 最新版預覽](https://bigpig8787.github.io/beli-flow-reconstruction/)**（示範版）
+
+[開啟 Fomery 封測站（Google 登入）](https://an4131754-collab.github.io/fomery-andy-preview/)
 
 和好友分享吃過的餐，也用月曆留下自己的用餐紀錄。
 
-## 開始使用
+## 封測版使用方式
 
 1. 用 Google 帳號登入，設定暱稱。
 2. 到「好友」，用好友 ID、邀請連結或 QR Code 送出申請。對方接受後，就能看彼此的餐照。
