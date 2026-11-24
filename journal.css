@@ -145,22 +145,40 @@ textarea { resize: vertical; }
 .qr { display: block; margin: 8px 0; }
 .qr img { display: block; width: 148px; height: 148px; image-rendering: pixelated; }
 [data-record].fields { gap: 20px; }
-.photo-picker { padding-bottom: 9px; border-bottom: 1px solid var(--border); }
-.photo-inputs { display: flex; align-items: center; gap: 8px; }
-.photo-strip { grid-auto-columns: clamp(92px, 30%, 164px); gap: 8px; padding-block: 4px; }
-.photo-strip:empty { display: none; }
-.photo-inputs button { border: 0; background: transparent; color: var(--accent); }
-.photo-inputs button:hover { background: var(--accent-pale); }
-.photo-inputs button:first-of-type { padding-inline: 2px 8px; font-weight: 650; }
-.photo-inputs button:last-of-type { display: grid; place-items: center; min-width: 44px; padding: 0; }
-.photo-inputs small { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
-.photo-inputs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+#photo-sheet { position: fixed; inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; overflow: auto; }
+#photo-sheet[open] { animation: none; }
+#photo-sheet::backdrop { background: var(--outer); }
+body:has(#photo-sheet[open]) { overflow: hidden; }
+.photo-sheet-frame { width: min(100%, 42rem); min-height: 100%; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.photo-sheet-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; margin-bottom: 20px; }
+.photo-sheet-header h2 { margin: 0; font-size: clamp(18px, 4.6vw, 24px); }
+.photo-sheet-header button { white-space: nowrap; }
+.photo-sheet-header [data-close-record] { border: 0; min-width: 44px; padding: 0; color: var(--accent); font-size: 26px; }
+.photo-sheet-empty { height: clamp(122px, 37vw, 203px); border-radius: 10px; background: var(--surface); }
+.photo-strip { grid-auto-columns: clamp(98px, 31%, 167px); gap: 8px; padding: 4px; scroll-padding-inline: 4px; margin-inline: -4px; }
+.photo-sheet-actions { display: flex; align-items: center; gap: 11px; margin-top: 14px; padding-top: 7px; border-top: 1px solid var(--border); }
+.photo-sheet-actions button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 0; background: transparent; color: var(--accent); }
+.photo-sheet-actions button:hover { background: var(--accent-pale); }
+.photo-sheet-actions button:first-of-type { font-weight: 700; }
+.photo-sheet-actions small { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
+.photo-sheet-actions svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
+[data-picker-status] { margin-inline: 8px; color: var(--quiet); }
+[data-picker-status].error { color: var(--danger); }
 .draft-tile { position: relative; display: flex; flex-direction: column; min-width: 0; margin: 0; scroll-snap-align: start; }
-.draft-tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--accent-pale); }
+.cover-choice { display: block; width: 100%; padding: 0; border: 0; overflow: hidden; }
+.cover-choice[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cover-choice:focus-visible { outline: 3px solid #007aff; outline-offset: 1px; }
+.draft-tile img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: var(--accent-pale); }
 .draft-tile figcaption { position: absolute; top: 5px; left: 5px; background: #10191ddd; color: #fff; padding: 2px 5px; border-radius: 4px; font-size: 11px; }
 .drop-photo { position: absolute; top: 3px; right: 3px; min-width: 38px; min-height: 38px; padding: 0; border-radius: 50%; color: #fff; background: #10191ddd; border: 0; font-size: 24px; line-height: 1; }
 .drop-photo:hover { background: #10191d; }
 .save-photo { margin-top: 4px; padding-inline: 3px; font-size: 12px; }
+.record-photo-summary { display: flex; width: 100%; gap: 12px; align-items: center; text-align: left; padding: 0 0 10px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+.record-photo-summary strong { color: var(--accent); }
+.record-photo-summary small { display: block; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.record-photo-thumbs { display: flex; flex: none; gap: 3px; }
+.record-photo-thumbs img { display: block; width: clamp(34px, 11vw, 58px); aspect-ratio: 1; object-fit: cover; border-radius: 5px; }
+.view-heading [data-close-record] { min-width: 44px; font-size: 25px; }
 .restaurant-field { display: grid; gap: 4px; }
 .restaurant-field input, .record-notes textarea { padding-inline: 0; border: 0; border-radius: 0; }
 .restaurant-field input { border-bottom: 1px solid var(--control-border); }
@@ -179,7 +197,6 @@ textarea { resize: vertical; }
 .chosen-place strong { overflow-wrap: anywhere; }
 .chosen-place button { border: 0; padding-inline: 8px; order: 1; }
 .chosen-place .map-attribution { margin: 0; }
-#date-hint { display: block; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
 
 @media (forced-colors: active) {
   .restaurant-field input:focus-visible, .record-notes textarea:focus-visible { outline-color: Highlight; }
@@ -229,12 +246,16 @@ dialog h2 { margin-bottom: 4px; }
 .story-feedback { color: var(--danger); }
 
 @media (prefers-reduced-motion: no-preference) {
+  #photo-sheet[open] .photo-sheet-frame { animation: open-photo-sheet 470ms cubic-bezier(.17,.84,.25,1) both; }
+  .cover-choice img { transition: transform 270ms cubic-bezier(.2,.8,.2,1); }
+  .cover-choice:active img { transform: scale(.96); }
   .tile img { transition: filter 180ms ease, transform 260ms cubic-bezier(.2,.8,.2,1); }
   .tile:active img { transform: scale(.97); filter: brightness(.9); }
   dialog[open] { animation: open-story 390ms cubic-bezier(.19,.82,.27,1) both; }
   dialog[open]::backdrop { animation: show-backdrop 330ms ease both; }
   @keyframes open-story { from { opacity: .25; translate: 0 19px; scale: .97; } }
   @keyframes show-backdrop { from { opacity: 0; } }
+  @keyframes open-photo-sheet { from { opacity: .2; transform: translateY(56px); } }
 }
 
 @media (max-width: 360px) {
