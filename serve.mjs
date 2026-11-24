@@ -10,6 +10,7 @@ const files = {
   '/demo.html': ['demo.html', 'text/html'],
   '/journal.mjs': ['journal.mjs', 'text/javascript'],
   '/journal-data.mjs': ['journal-data.mjs', 'text/javascript'],
+  '/journal-media.mjs': ['journal-media.mjs', 'text/javascript'],
   '/journal.css': ['journal.css', 'text/css'],
   '/app.mjs': ['app.mjs', 'text/javascript'],
   '/catalog.mjs': ['catalog.mjs', 'text/javascript'],

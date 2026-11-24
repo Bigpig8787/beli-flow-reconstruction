@@ -23,6 +23,13 @@ test('empty or oversized searches cannot produce misleading map links', () => {
   assert.ok(mapSearchLinks('店'.repeat(200)).google.length < 2048);
 });
 
+test('a chosen Google place ID points at the exact branch without changing the text query', () => {
+  const links = mapSearchLinks('台中餐廳', 'ChIJ-test_2');
+  assert.equal(new URL(links.google).searchParams.get('query_place_id'), 'ChIJ-test_2');
+  assert.equal(new URL(links.google).searchParams.get('query'), '台中餐廳');
+  assert.equal(new URL(links.apple).searchParams.has('query_place_id'), false);
+});
+
 test('maps safely encodes search and directions with official URL parameters', () => {
   const search = new URL(mapsUrl('台南 A&B 咖啡'));
   assert.equal(search.origin, 'https://www.google.com');
