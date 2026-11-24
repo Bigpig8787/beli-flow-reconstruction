@@ -3,6 +3,7 @@
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "2.119.2",
+    "exifreader": "4.52.0",
     "qrcode-generator": "2.0.4"
   }
 }
