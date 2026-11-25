@@ -7,6 +7,7 @@ const port = Number(process.env.PORT ?? 8766);
 const files = {
   '/': ['index.html', 'text/html'],
   '/index.html': ['index.html', 'text/html'],
+  '/fomery-wordmark.svg': ['fomery-wordmark.svg', 'image/svg+xml'],
   '/demo.html': ['demo.html', 'text/html'],
   '/journal.mjs': ['journal.mjs', 'text/javascript'],
   '/journal-data.mjs': ['journal-data.mjs', 'text/javascript'],

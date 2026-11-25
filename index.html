@@ -10,12 +10,16 @@
       if (localStorage.getItem('fomery-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
     } catch {}
   </script>
-  <link rel="stylesheet" href="journal.css?v=photo-picker-1">
+  <link rel="stylesheet" href="journal.css?v=fomery-brand-1">
   <script type="module" src="journal.mjs?v=photo-picker-1"></script>
 </head>
 <body>
   <header class="shell masthead">
-    <h1>餐桌筆記<span class="brand-dot">.</span></h1>
+    <h1 aria-label="Fomery">
+      <svg class="wordmark" width="112" height="36" viewBox="0 -42.86 568 182.86" aria-hidden="true">
+        <use href="fomery-wordmark.svg#wordmark"/>
+      </svg>
+    </h1>
     <button type="button" class="account" id="login" hidden>Google 登入</button>
   </header>
   <main class="shell" id="main">

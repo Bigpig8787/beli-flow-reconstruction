@@ -3,7 +3,7 @@ import { journalConfig, vendorFiles } from './journal-config.mjs';
 const root = new URL('./', import.meta.url);
 const config = journalConfig();
 await mkdir(new URL('dist/', root), { recursive: true });
-for (const name of ['index.html','demo.html','styles.css','app.mjs','catalog.mjs','ranking.mjs','social.mjs','social-ui.mjs','maps.mjs','photos.mjs','photo-ui.mjs','ui-options.html','ui-preview.css','ui-preview.mjs','record.css','journal.mjs','journal.css','journal-data.mjs','journal-media.mjs']) {
+for (const name of ['index.html','fomery-wordmark.svg','demo.html','styles.css','app.mjs','catalog.mjs','ranking.mjs','social.mjs','social-ui.mjs','maps.mjs','photos.mjs','photo-ui.mjs','ui-options.html','ui-preview.css','ui-preview.mjs','record.css','journal.mjs','journal.css','journal-data.mjs','journal-media.mjs']) {
   await copyFile(new URL(name,root), new URL('dist/'+name,root));
 }
 await cp(new URL('preview-photos/', root), new URL('dist/preview-photos/', root), { recursive: true });
