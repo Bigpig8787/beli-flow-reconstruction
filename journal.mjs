@@ -396,7 +396,16 @@ function changeCover(index) {
 }
 
 function galleryImages(meal, photos, offset = 0) {
-  return photos.map((src, index) => `<figure>${photo({ ...meal, photo: src }, `餐照 ${offset + index + 1}`, 'detail-photo', index > 0 || offset > 0)}</figure>`).join('');
+  return photos.map((src, index) => `<figure><div class="photo-matte">${photo({ ...meal, photo: src }, `餐照 ${offset + index + 1}`, 'detail-photo', index > 0 || offset > 0)}</div></figure>`).join('');
+}
+
+function fitGalleryPhoto(image) {
+  const frame = image.closest('figure');
+  if (!image.naturalWidth || frame.dataset.ratio) return;
+  const portrait = image.naturalHeight > image.naturalWidth;
+  frame.dataset.ratio = portrait ? '9 / 16' : '4 / 5';
+  frame.toggleAttribute('data-portrait', portrait);
+  frame.style.setProperty('--photo-edge', photoEdgeTint(image));
 }
 
 function showGalleryCount(track) {
@@ -410,13 +419,9 @@ function showGalleryCount(track) {
   controls.querySelector('[data-slide="1"]').disabled = index === total - 1;
   if (!track.closest('.reader-page')) return;
   const frame = track.children[index];
-  const image = frame.querySelector('img');
-  if (!image.naturalWidth) return;
-  if (!frame.dataset.ratio) {
-    frame.dataset.ratio = image.naturalHeight > image.naturalWidth ? '9 / 16' : '4 / 5';
-    frame.style.setProperty('--photo-edge', photoEdgeTint(image));
-  }
-  track.style.setProperty('--frame-ratio', frame.dataset.ratio);
+  fitGalleryPhoto(frame.querySelector('img'));
+  if (frame.dataset.ratio) track.style.setProperty('--frame-ratio', frame.dataset.ratio);
+  track.toggleAttribute('data-portrait', frame.hasAttribute('data-portrait'));
 }
 
 const storyIcons = {
@@ -426,13 +431,16 @@ const storyIcons = {
   send: '<path d="M12 19V5m-6 6 6-6 6 6"/>',
 };
 const storyIcon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${storyIcons[name]}</svg>`;
-const demoComments = ['這看起來好香。', '蛋拌進去之後，湯變得好濃。', '這鍋幾個人吃剛好？', '兩個人剛好，再加一碗飯。', '好，下次一起去。', '可以。'];
+const demoComments = {
+  'sample-1': ['這看起來好香。', '蛋拌進去之後，湯變得好濃。', '這鍋幾個人吃剛好？', '兩個人剛好，再加一碗飯。', '好，下次一起去。', '可以。'],
+  'sample-7': ['烤餅看起來好香，下次一起去。'],
+};
 
 function mealDetails(meal, immersive = false) {
   const own = meal.owner === (diner?.id ?? '你');
   const photos = [meal.photo, ...(meal.extra_photos || [])];
-  const demo = !diner && immersive && meal.id === 'sample-1';
-  const commentCount = demo ? demoComments.length : 0;
+  const examples = !diner && immersive ? demoComments[meal.id] ?? [] : [];
+  const commentCount = examples.length;
   const showComposer = diner || immersive;
   const form = showComposer ? `<form class="comment-form" data-comment>
     <input name="message" aria-label="寫留言" placeholder="留言" maxlength="280" value="${escape(commentDrafts.get(meal.id))}" required ${diner ? '' : 'disabled'}>
@@ -457,8 +465,8 @@ function mealDetails(meal, immersive = false) {
     <div class="story-likers" data-story-likers hidden></div>
     ${meal.caption ? `<p class="meal-caption">${escape(meal.caption)}</p>` : ''}
     ${meal.place_id ? `<a class="meal-map" target="_blank" rel="noopener noreferrer" href="${escape(mapSearchLinks(meal.restaurant, meal.place_id).google)}">在 Google 地圖開啟 ↗</a>` : ''}
-    ${showComposer ? `<section class="story-comments" aria-label="留言"><div data-comments>${demo ? demoComments.map((body, index) =>
-      commentRow({ nickname: 'Jamie', body }, index % 2 === 0)).join('') : ''}</div></section>` : ''}
+    ${showComposer ? `<section class="story-comments" aria-label="留言"><div data-comments>${examples.map((body, index) =>
+      commentRow({ nickname: 'Jamie', body }, meal.id === 'sample-1' && index % 2 === 0)).join('')}</div></section>` : ''}
     <p class="story-feedback" role="status" data-story-status hidden></p>
     ${own && diner ? `<button type="button" class="delete-meal" data-delete-meal="${escape(meal.id)}">刪除紀錄</button>` : ''}
   </div>${form}</article>`;
@@ -658,7 +666,9 @@ detail.addEventListener('scroll', event => {
 }, { capture: true, passive: true });
 
 detail.addEventListener('load', event => {
-  if (event.target.matches?.('.reader-page .detail-photo')) showGalleryCount(event.target.closest('.gallery-track'));
+  if (!event.target.matches?.('.reader-page .detail-photo')) return;
+  fitGalleryPhoto(event.target);
+  showGalleryCount(event.target.closest('.gallery-track'));
 }, true);
 
 view.addEventListener('scroll', event => {
