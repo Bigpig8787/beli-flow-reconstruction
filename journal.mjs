@@ -10,7 +10,6 @@ const detail = document.querySelector('#meal-detail');
 const detailBody = document.querySelector('#detail-body');
 const photoSheet = document.querySelector('#photo-sheet');
 const pickerPhotos = photoSheet.querySelector('[data-picker-photos]');
-const pickerEmpty = photoSheet.querySelector('.photo-sheet-empty');
 const pickerNext = photoSheet.querySelector('[data-finish-photos]');
 const pickerStatus = photoSheet.querySelector('[data-picker-status]');
 const pages = ['feed', 'friends', 'record', 'explore', 'profile'];
@@ -78,7 +77,7 @@ function feedPage() {
     const arrows = items.length > 2 ? '<div class="feed-arrows"><button type="button" data-shift-row="-1" aria-label="較新的餐" disabled>‹</button><button type="button" data-shift-row="1" aria-label="較早的餐">›</button></div>' : '';
     return `<section class="friend-row" aria-label="${row} 的近況"><header><h3>${row}</h3>${arrows}</header><div class="tile-grid">${items.map(tile).join('')}</div></section>`;
   });
-  const action = diner ? '<button type="button" data-refresh>更新</button>' : '<small>示範餐照</small>';
+  const action = diner ? '<button type="button" data-refresh aria-label="更新動態"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 5v5h-5M20 10a8 8 0 1 0 0 5"/></svg></button>' : '';
   return title('朋友近況', action) + (rows.length ? rows.join('') : '<p>好友最近七天還沒有貼文。</p><button type="button" data-page="friends">去加好友</button>');
 }
 
@@ -314,7 +313,6 @@ function paintRecordPhotos(revealNewest = false) {
   const photos = draft.photos || [];
   pickerPhotos.innerHTML = pickerTiles();
   pickerPhotos.hidden = photos.length === 0;
-  pickerEmpty.hidden = photos.length > 0;
   if (revealNewest) pickerPhotos.scrollLeft = pickerPhotos.scrollWidth;
   const count = photoSheet.querySelector('[data-photo-count]');
   count.textContent = `${photos.length} / ${mealPhotoLimit}`;
