@@ -329,23 +329,22 @@ dialog h2 { margin-bottom: 4px; }
 .reader-page .story-comments, .reader-page .story-feedback { width: min(100%, 428px); margin-inline: auto; }
 .reader-page .meal-map { display: block; width: min(100%, 428px); margin-inline: auto; }
 .reader-page .gallery-track {
-  --portrait-height: min(54dvh, 480px);
+  --gallery-height: min(54dvh, 480px);
   width: 100%;
-  aspect-ratio: var(--frame-ratio, 4 / 5);
+  max-height: var(--gallery-height);
+  aspect-ratio: var(--frame-ratio, .8);
   grid-template-rows: minmax(0, 1fr);
 }
-.reader-page .gallery-track[data-portrait] { max-height: var(--portrait-height); }
 .reader-page .gallery-track figure { position: relative; min-height: 0; }
 .reader-page .photo-matte {
   position: relative;
-  width: 100%;
+  width: min(100%, calc(var(--gallery-height) * var(--frame-ratio, .8)));
   height: 100%;
   margin-inline: auto;
   overflow: hidden;
   border-radius: 12px;
   background: color-mix(in srgb, var(--photo-edge, var(--surface)) 32%, var(--surface));
 }
-.reader-page [data-portrait] > .photo-matte { width: min(100%, calc(var(--portrait-height) * var(--frame-ratio))); }
 .reader-page .detail-photo { height: 100%; background: transparent; }
 .reader-photo-error { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--quiet); background: var(--surface); }
 .reader-page .gallery-controls { position: absolute; inset: auto auto 8px 50%; transform: translateX(-50%); margin: 0; pointer-events: none; }
