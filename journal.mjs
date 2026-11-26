@@ -1,7 +1,7 @@
 import { findPlaces, googleExploreEmbedUrl, mapSearchLinks, suggestPlaces } from './maps.mjs?v=record-2';
 import { groupMeals, localDate, mealDateFromPhotos, mealPhotoLimit, monthDates, sampleMeals, shiftDay } from './journal-data.mjs?v=friends-feed-1';
 import { mealCard, photoEdgeTint, preparePhoto, sharePhoto } from './journal-media.mjs?v=friends-feed-1';
-import { mealReader } from './meal-reader.mjs?v=friends-feed-2';
+import { mealReader } from './meal-reader.mjs?v=friends-feed-3';
 import { qrcode } from './vendor/qrcode.mjs';
 
 const view = document.querySelector('#view');
@@ -15,15 +15,21 @@ const pickerNext = photoSheet.querySelector('[data-finish-photos]');
 const pickerStatus = photoSheet.querySelector('[data-picker-status]');
 const pages = ['feed', 'friends', 'record', 'explore', 'profile'];
 const friendCode = /^[a-f0-9]{12}$/;
-const coverFields = 'id,owner,restaurant,caption,eaten_on,eaten_time,created_at,photo,place_id';
+const mealFields = 'id,owner,restaurant,caption,eaten_on,eaten_time,created_at,place_id';
 const sample = sampleMeals();
 const config = await fetch('./journal-config.json', { cache: 'no-store' }).then(response => response.json()).catch(() => ({}));
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const commentDrafts = new Map();
-const openMealReader = mealReader(detail, detailBody, { render: meal => mealDetails(meal, true), activate: loadStory, reducedMotion });
+const pendingPhotos = new WeakMap();
+const coverVisibleRatio = .2;
+const feedPhotoObserver = new IntersectionObserver(showFeedPhotos, { threshold: coverVisibleRatio });
+const openMealReader = mealReader(detail, detailBody, {
+  render: meal => mealDetails(meal, true), activate: loadStory, readCover: readMealCover, reducedMotion,
+});
 let client;
 let session;
 let diner;
+let profileStatus = 'loading';
 let friends = [];
 let feed = [];
 let personal = [];
@@ -62,10 +68,56 @@ function nameFor(id) {
     ?.other?.nickname ?? id;
 }
 
+function photoSource(meal) {
+  return meal.id.startsWith('sample-') || /^data:image\/jpeg;base64,[a-z0-9+/]+={0,2}$/i.test(meal.photo) ? meal.photo : '';
+}
+
 function photo(meal, label, className = '', lazy = false) {
-  const src = meal.id.startsWith('sample-') || /^data:image\/jpeg;base64,[a-z0-9+/]+={0,2}$/i.test(meal.photo)
-    ? meal.photo : '';
-  return '<img class="' + className + '" src="' + escape(src) + '" alt="' + escape(label) + '"' + (lazy ? ' loading="lazy"' : '') + '>';
+  const src = photoSource(meal);
+  return '<img class="' + className + '"' + (src ? ' src="' + escape(src) + '"' : '')
+    + ' alt="' + escape(label) + '"' + (lazy ? ' loading="lazy"' : '') + '>';
+}
+
+function fetchMealPhotos(meals) {
+  const missing = meals.filter(meal => !meal.photo && !pendingPhotos.has(meal));
+  if (missing.length && diner) {
+    const authTurn = authenticating;
+    const request = client.from('meals').select('id,photo').in('id', missing.map(meal => meal.id)).then(result => {
+      const covers = new Map(checked(result).map(meal => [meal.id, meal.photo]));
+      if (authTurn === authenticating) {
+        for (const meal of missing) meal.photo = covers.get(meal.id);
+      }
+    }).finally(() => {
+      for (const meal of missing) pendingPhotos.delete(meal);
+    });
+    for (const meal of missing) pendingPhotos.set(meal, request);
+  }
+  return Promise.all(meals.map(meal => pendingPhotos.get(meal)));
+}
+
+async function readMealCover(meal) {
+  await fetchMealPhotos([meal]);
+  return photoSource(meal);
+}
+
+function showFeedPhotos(entries) {
+  const mealsById = new Map(feed.map(meal => [meal.id, meal]));
+  const visible = [];
+  for (const { intersectionRatio, target } of entries) {
+    if (intersectionRatio < coverVisibleRatio || !target.isConnected) continue;
+    feedPhotoObserver.unobserve(target);
+    const meal = mealsById.get(target.closest('.tile').dataset.meal);
+    if (meal) visible.push({ meal, image: target });
+  }
+  if (!visible.length) return;
+  void fetchMealPhotos(visible.map(entry => entry.meal)).then(() => {
+    for (const { meal, image } of visible) {
+      const src = photoSource(meal);
+      if (src && image.isConnected) image.src = src;
+    }
+  }, () => {
+    if (visible.some(({ image }) => image.isConnected)) notice('部分餐照暫時無法載入，請按更新再試。', true);
+  });
 }
 
 function tile(meal) {
@@ -216,11 +268,12 @@ function explorePage() {
     + '<iframe class="explore-map" title="地圖" loading="lazy" referrerpolicy="no-referrer" src="' + escape(googleExploreEmbedUrl) + '"></iframe>';
 }
 
-async function mealCovers(owner, activePage, first, end) {
+async function readMeals(owner, activePage, first, end) {
   const rows = [];
   const batch = 100;
+  const fields = activePage === 'feed' ? mealFields : mealFields + ',photo';
   for (let start = 0; ; start += batch) {
-    let query = client.from('meals').select(coverFields).gte('eaten_on', first).lte('eaten_on', end);
+    let query = client.from('meals').select(fields).gte('eaten_on', first).lte('eaten_on', end);
     query = activePage === 'feed' ? query.neq('owner', owner) : query.eq('owner', owner);
     const chunk = checked(await query.order('eaten_on', { ascending: false })
       .order('eaten_time', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })
@@ -231,16 +284,25 @@ async function mealCovers(owner, activePage, first, end) {
 }
 
 function render(focus = false) {
+  feedPhotoObserver.disconnect();
   login.hidden = !!session || !client;
   for (const button of document.querySelectorAll('nav button')) {
     if (button.dataset.page === page) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
-  view.ariaBusy = 'false';
+  view.ariaBusy = String(!!session && !diner && profileStatus === 'loading');
   if (session && !diner) {
-    view.innerHTML = title('建立個人資料') + '<form data-profile class="fields"><label>顯示暱稱<input name="nickname" maxlength="32" required autocomplete="nickname"></label><div><button type="submit" class="primary">繼續</button></div></form>';
+    if (profileStatus === 'loaded') {
+      view.innerHTML = title('建立個人資料') + '<form data-profile class="fields"><label>顯示暱稱<input name="nickname" maxlength="32" required autocomplete="nickname"></label><div><button type="submit" class="primary">繼續</button></div></form>';
+    } else {
+      view.innerHTML = title('個人資料') + (profileStatus === 'loading' ? '<p role="status">載入中…</p>'
+        : '<p role="status">暫時無法讀取你的個人資料。</p><button type="button" data-retry-profile>重試</button>');
+    }
   } else {
     view.innerHTML = { feed: feedPage, friends: friendsPage, record: recordPage, explore: explorePage, profile: profilePage }[page]();
+    if (diner && page === 'feed') {
+      for (const image of view.querySelectorAll('.tile img:not([src])')) feedPhotoObserver.observe(image);
+    }
   }
   if (focus) view.querySelector('h2').focus();
 }
@@ -253,7 +315,7 @@ async function refresh() {
   if (activePage === 'friends' || activePage === 'feed') {
     const [rows, meals] = await Promise.all([
       client.from('friend_requests').select('*,sender_info:diners!friend_requests_sender_fkey(*),recipient_info:diners!friend_requests_recipient_fkey(*)'),
-      activePage === 'feed' ? mealCovers(owner, 'feed', shiftDay(localDate(), -6), localDate()) : [],
+      activePage === 'feed' ? readMeals(owner, 'feed', shiftDay(localDate(), -6), localDate()) : [],
     ]);
     if (updating !== turn) return;
     friends = checked(rows).map(row => ({ ...row, other: row.sender === owner ? row.recipient_info : row.sender_info }));
@@ -261,7 +323,7 @@ async function refresh() {
   }
   if (activePage === 'profile') {
     const { first, next } = monthDates(month);
-    const result = await mealCovers(owner, 'profile', first, shiftDay(next, -1));
+    const result = await readMeals(owner, 'profile', first, shiftDay(next, -1));
     if (updating === turn) personal = result;
   }
   return updating === turn && ['feed', 'friends', 'profile'].includes(activePage);
@@ -293,6 +355,7 @@ async function initialize(nextSession) {
   ++updating;
   session = nextSession;
   diner = undefined;
+  profileStatus = 'loading';
   friends = [];
   feed = [];
   personal = [];
@@ -303,10 +366,21 @@ async function initialize(nextSession) {
   if (detail.open) detail.close();
   detailBody.replaceChildren();
   if (session) {
-    const profile = await client.from('diners').select('*').eq('id', session.user.id).maybeSingle();
+    render();
+    let profile;
+    try {
+      profile = checked(await client.from('diners').select('*').eq('id', session.user.id).maybeSingle());
+    } catch {
+      if (turn === authenticating) {
+        profileStatus = 'failed';
+        render(true);
+      }
+      return;
+    }
     if (turn !== authenticating) return;
-    diner = checked(profile);
-    await refresh();
+    diner = profile;
+    profileStatus = 'loaded';
+    await action(refresh, '暫時無法載入內容，請稍後再試。');
     if (turn !== authenticating) return;
     await openInvite();
   }
@@ -404,7 +478,6 @@ function fitGalleryPhoto(image) {
   if (!image.naturalWidth || frame.dataset.ratio) return;
   const ratio = image.naturalWidth / image.naturalHeight;
   frame.dataset.ratio = ratio <= 1 ? ratio : 4 / 5;
-  frame.toggleAttribute('data-portrait', ratio <= 1);
   frame.style.setProperty('--frame-ratio', frame.dataset.ratio);
   frame.style.setProperty('--photo-edge', photoEdgeTint(image));
 }
@@ -427,7 +500,6 @@ function showGalleryCount(track) {
   fitGalleryPhoto(frame.querySelector('img'));
   if (!frame.dataset.ratio) return;
   track.style.setProperty('--frame-ratio', frame.dataset.ratio);
-  track.toggleAttribute('data-portrait', frame.hasAttribute('data-portrait'));
 }
 
 const storyIcons = {
@@ -763,6 +835,8 @@ document.addEventListener('click', event => {
     openPhotoSheet(!!draft.photos?.length);
   } else if (data.finishPhotos !== undefined) {
     finishPhotoSheet();
+  } else if (data.retryProfile !== undefined) {
+    void action(() => initialize(session), '無法載入帳號，請重新整理。');
   } else if (data.refresh !== undefined) {
     if (button.ariaBusy === 'true') return;
     button.ariaBusy = 'true';
@@ -1065,5 +1139,5 @@ if (/^https:\/\/[a-z0-9]+\.supabase\.co\/?$/.test(config.url) && /^sb_publishabl
     });
   }, '目前無法連線登入服務，請稍後再試。');
 }
-render();
+if (!client || view.ariaBusy === 'true') render();
 if (url.searchParams.has('error')) notice('Google 登入未完成，請再試一次。', true);

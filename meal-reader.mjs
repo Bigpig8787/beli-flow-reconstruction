@@ -1,7 +1,7 @@
 const easing = 'cubic-bezier(.2,.78,.22,1)';
 const translate = (axis, pixels) => `translate${axis}(${pixels}px)`;
 
-export function mealReader(dialog, body, { render, activate, reducedMotion }) {
+export function mealReader(dialog, body, { render, activate, readCover, reducedMotion }) {
   const bar = dialog.querySelector('.detail-bar');
   const counter = bar.querySelector('[data-reader-remaining]');
   const navigation = bar.querySelector('[data-reader-navigation]');
@@ -12,11 +12,15 @@ export function mealReader(dialog, body, { render, activate, reducedMotion }) {
     if (current.panels.has(index)) return current.panels.get(index);
     const element = document.createElement('div');
     element.className = 'reader-page';
-    element.innerHTML = render(current.meals[index]);
+    const meal = current.meals[index];
+    element.innerHTML = render(meal);
     current.track.append(element);
     const cover = element.querySelector('.detail-photo');
     const entry = { element, cover, decoded: false };
-    entry.ready = cover.decode().then(() => { entry.decoded = true; }, () => {
+    const source = cover.hasAttribute('src') ? Promise.resolve() : readCover(meal).then(src => {
+      if (src) cover.src = src;
+    });
+    entry.ready = source.then(() => cover.decode()).then(() => { entry.decoded = true; }, () => {
       const error = document.createElement('p');
       error.className = 'reader-photo-error';
       error.textContent = '照片暫時無法載入';
@@ -164,8 +168,12 @@ export function mealReader(dialog, body, { render, activate, reducedMotion }) {
     if (gesture.axis === 'X') {
       const threshold = Math.min(84, dialog.clientWidth * .22);
       void settle(!cancelled && Math.abs(gesture.distance) >= threshold ? gesture.step : 0, gesture.offset);
-    } else if (!cancelled && gesture.distance >= 72) void close(gesture.offset);
-    else {
+    } else {
+      const threshold = gesture.header ? 72 : Math.min(136, Math.max(104, dialog.clientHeight * .18));
+      if (!cancelled && gesture.distance >= threshold) {
+        void close(gesture.offset);
+        return;
+      }
       if (gesture.offset) dialog.animate([
         { transform: translate('Y', gesture.offset) }, { transform: 'none' },
       ], { duration: 185, easing });
@@ -178,13 +186,16 @@ export function mealReader(dialog, body, { render, activate, reducedMotion }) {
     if (!state || state.busy || event.touches.length !== 1 || event.target.closest('button, input, textarea, a')) return;
     const { clientX: x, clientY: y } = event.touches[0];
     const bounds = dialog.getBoundingClientRect();
-    if (bar.contains(event.target)) pull = { x, y, axis: 'Y' };
-    else if (y >= bounds.top + bounds.height * .5) {
+    const header = bar.contains(event.target);
+    const canClose = header || event.target.closest('.story-content')?.scrollTop <= 1;
+    let step = 0;
+    if (!header && y >= bounds.top + bounds.height * .5 && !event.target.closest('.story-gallery')) {
       const fromLeft = x - bounds.left;
       const fromRight = bounds.right - x;
-      if (fromLeft >= 14 && fromLeft <= 52) pull = { x, y, axis: 'X', step: -1 };
-      else if (fromRight >= 14 && fromRight <= 52) pull = { x, y, axis: 'X', step: 1 };
+      if (fromLeft >= 14 && fromLeft <= 52) step = -1;
+      else if (fromRight >= 14 && fromRight <= 52) step = 1;
     }
+    if (canClose || step) pull = { x, y, header, canClose, step };
   }, { passive: true });
 
   dialog.addEventListener('touchmove', event => {
@@ -192,18 +203,19 @@ export function mealReader(dialog, body, { render, activate, reducedMotion }) {
     if (event.touches.length !== 1) return release(true);
     const dx = event.touches[0].clientX - pull.x;
     const dy = event.touches[0].clientY - pull.y;
-    const horizontal = pull.axis === 'X';
-    const along = horizontal ? dx : dy;
     if (!pull.active) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
-      if (Math.abs(along) <= Math.abs(horizontal ? dy : dx) || (horizontal ? along * pull.step >= 0 : along < 0)) {
+      const horizontal = Math.abs(dx) > Math.abs(dy);
+      const matches = horizontal ? pull.step && dx * pull.step < 0 : pull.canClose && dy > Math.abs(dx) * 1.2;
+      if (!matches || !event.cancelable) {
         pull = undefined;
         return;
       }
-      if (!event.cancelable) { pull = undefined; return; }
       state.flight?.cancel();
+      pull.axis = horizontal ? 'X' : 'Y';
       pull.active = true;
     }
+    const horizontal = pull.axis === 'X';
     event.preventDefault();
     pull.distance = horizontal ? Math.min(0, dx * pull.step) * pull.step : Math.max(0, dy);
     let offset = Math.min(dialog.clientHeight, pull.distance) * .68;
