@@ -28,6 +28,11 @@ const files = {
   '/ui-preview.css': ['ui-preview.css', 'text/css'],
   '/record.css': ['record.css', 'text/css'],
   '/ui-preview.mjs': ['ui-preview.mjs', 'text/javascript'],
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
+  '/sw.js': ['sw.js', 'text/javascript'],
+  '/icons/icon-192.png': ['icons/icon-192.png', 'image/png'],
+  '/icons/icon-512.png': ['icons/icon-512.png', 'image/png'],
+  '/icons/apple-touch-icon.png': ['icons/apple-touch-icon.png', 'image/png'],
 };
 for (const id of [4, 7, 9, 10, 12, 13, 14, 16]) {
   files[`/preview-photos/${id}.jpg`] = [`preview-photos/${id}.jpg`, 'image/jpeg'];
